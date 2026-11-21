@@ -104,10 +104,10 @@ function simVisits(R,N,pick,ch,ri){const mon=months(),ACT=["Appointment made","C
           if(f.type==="home"&&ch(.5)&&!S.item.some(x=>x.p===p.id&&x.item===VITEMS[2])){S.item.push({id:uid("i"),p:p.id,d,item:VITEMS[2],by:p.vol});v.items.push(VITEMS[2]);}}
         else{f.status="done";f.done=f.seen;f.act=f.cact=f.type==="vision"||f.type==="hearing"?pick([CACT[2],CACT[3]]):CACT[2];}}}}
   for(const cg of[1,2,3]){const vols=S.w.filter(w=>w.cg===cg);let k=0;for(const ym of mon){const d=ym+"-"+String(8+cg*2).padStart(2,"0");if(d<CFG.start||d>TODAY)continue;S.mt.push({id:uid("m"),cg,d,module:MODULES[k++%MODULES.length],att:vols.filter(()=>ch(.86)).map(w=>w.id),restock:"y"});}}
-  S.flag.sort((a,b)=>a.d<b.d?-1:1);}
+  S.flag.sort((a,b)=>cmp(a.d,b.d));}
 
 /* ---------- volunteer: due list, elders, the visit ---------- */
-const myElders=vol=>S.p.filter(p=>p.vol===vol).sort((a,b)=>a.sort<b.sort?-1:1);
+const myElders=vol=>S.p.filter(p=>p.vol===vol).sort((a,b)=>cmp(a.sort,b.sort));
 const visitedIn=(pid,ym)=>visitsOf(pid).some(v=>v.d.slice(0,7)===ym);
 const chkNames=a=>a.map(c=>CHK[c].n).join(", ");
 function volTasks(vol){const out=[],ym=TODAY.slice(0,7);
@@ -118,7 +118,7 @@ function volTasks(vol){const out=[],ym=TODAY.slice(0,7);
     const due=dueChecks(p.id,TODAY);if(due.length)why.push("Due at this visit: "+chkNames(due));
     if(e&&e.end&&e.handoff&&e.handoff.vol===vol&&diff(TODAY,e.end)<=60)why.push("Handed back from the community health worker on "+fmtD(e.end)+(e.handoff.watch.length?". Asked to keep watching: "+e.handoff.watch.map(id=>BAR[IX.b[id].key].label).join("; "):""));
     out.push({p:pr,person:p,why:why.join(". ")+"."});}
-  return out.sort((a,b)=>a.p-b.p||(a.person.sort<b.person.sort?-1:1));}
+  return out.sort((a,b)=>a.p-b.p||cmp((a.person.sort,b.person.sort)));}
 function vVToday(){const w=me(),ts=volTasks(w.id),el=myElders(w.id),ym=TODAY.slice(0,7),done=el.filter(p=>visitedIn(p.id,ym)).length;
   let h="<h1>Today</h1><p class='muted'>"+fmtD(TODAY)+". Every line says why the person is on the list.</p>"+noteHtml();
   h+='<div class="grid">'+stat("My elders",el.length)+stat("Visited in "+MON[+ym.slice(5,7)-1],done+" of "+el.length)+stat("Still to visit",ts.length)+"</div>";
@@ -189,7 +189,7 @@ function vVResults(){const w=me(),el=myElders(w.id),ids=new Set(el.map(p=>p.id))
 
 /* ---------- coordinator ---------- */
 const cgOf=p=>p.vol?IX.w[p.vol].cg:0;
-function vCFlags(){const allOpen=S.flag.filter(f=>f.to==="coord"&&f.status==="open"),batch=allOpen.filter(batched).sort((a,b)=>cgOf(IX.p[a.p])-cgOf(IX.p[b.p])||(a.d<b.d?-1:1)),open=allOpen.filter(f=>!batched(f)).sort((a,b)=>(b.urg-a.urg)||(a.d<b.d?-1:1)),urg=open.filter(f=>f.urg),atClinic=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").length;
+function vCFlags(){const allOpen=S.flag.filter(f=>f.to==="coord"&&f.status==="open"),batch=allOpen.filter(batched).sort((a,b)=>cgOf(IX.p[a.p])-cgOf(IX.p[b.p])||cmp((a.d,b.d))),open=allOpen.filter(f=>!batched(f)).sort((a,b)=>(b.urg-a.urg)||cmp((a.d,b.d))),urg=open.filter(f=>f.urg),atClinic=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").length;
   let h="<h1>Flags</h1><p class='muted'>"+fmtD(TODAY)+". Urgent flags need action the same day. The rest are reviewed at the monthly Care Group meeting.</p>"+noteHtml();
   h+='<div class="grid">'+stat("Urgent",urg.length)+stat("For the monthly review",open.length-urg.length,open.filter(f=>!f.urg&&diff(TODAY,f.d)>31).length+" have waited more than a month")+stat("Vision and hearing list",batch.length,"for the monthly meeting")+stat("Passed to the clinic, still open",atClinic)+stat("Handyman jobs open",S.job.filter(j=>j.status==="open").length)+"</div>";
   const show=UI.all?open:open.slice(0,12);
@@ -210,7 +210,7 @@ function vGroups(){const F=UI.F&&UI.F.t==="mt"?UI.F:(UI.F={t:"mt",cg:null,d:TODA
     +q("Module taught",'<select data-sel="module"><option value="">Choose the module</option>'+MODULES.map(m=>'<option'+(F.module===m?" selected":"")+">"+m+"</option>").join("")+"</select>",F.tried&&!F.module)
     +(F.cg?q("Volunteers present",multi("att",vols.map(w=>[w.id,w.name]),F.att),F.tried&&!F.att.length,"Tap each volunteer who attended."):"")+q("Were supplies restocked?",seg("restock",YN,F.restock),F.tried&&!F.restock)+'<div class="row"><button class="pri" data-act="savemt">Save the meeting</button></div></div>';
   return h;}
-function vJobs(){const open=S.job.filter(j=>j.status==="open").sort((a,b)=>a.d<b.d?-1:1),done=S.job.filter(j=>j.status==="done");
+function vJobs(){const open=S.job.filter(j=>j.status==="open").sort((a,b)=>cmp(a.d,b.d)),done=S.job.filter(j=>j.status==="done");
   let h="<h1>Work list</h1><p class='muted'>Home repairs and safety fittings for the church handyman teams, from No answers on the home safety and heating checks.</p>"+noteHtml()+'<div class="grid">'+stat("Open",open.length)+stat("Done",done.length)+stat("Oldest open",open.length?diff(TODAY,open[0].d)+" days":"None")+"</div>";
   h+=open.slice(0,UI.all?999:10).map(j=>{const p=IX.p[j.p];return'<div class="card task p3"><h3>Care Group '+cgOf(p)+" · listed "+fmtD(j.d)+"</h3><h2>"+pLink(p)+' <span class="muted small">'+esc(p.place)+" · "+esc(p.phone)+"</span></h2><ul>"+j.items.map(x=>"<li>No: "+esc(x)+"</li>").join("")+'</ul><div class="row"><button data-act="jobdone" data-id="'+j.id+'">Mark as done</button></div></div>';}).join("");
   if(open.length>10&&!UI.all)h+='<button data-act="all">Show all '+open.length+"</button>";return h;}
@@ -241,4 +241,4 @@ const XACT={
    f.cact=v;f.seen=TODAY;if(v===CACT[0]){f.to="clinic";UI.note=["Passed to the clinic. It is now on the clinic's To do list."];}else{f.status="done";f.done=TODAY;f.act=v;if(v===CACT[1]){addJob(f);UI.note=["Added to the handyman work list."];}else UI.note=["Recorded: "+v+"."];}render();},
  jobdone:d=>{const j=S.job.find(x=>x.id===d.id);j.status="done";j.done=TODAY;UI.note=["Marked as done for "+IX.p[j.p].name+"."];UI.keep=true;render();},
  vaxdone:d=>{const f=S.flag.find(x=>x.id===d.id);f.status="done";f.done=TODAY;f.act="Registry checked";UI.note=["Recorded for "+IX.p[f.p].name+"."];UI.keep=true;render();},
- savemt:()=>{const F=UI.F;UI.keep=true;if(!F.cg||!F.d||F.d>TODAY||!F.module||!F.att.length||!F.restock){F.tried=true;return render();}S.mt.push({id:uid("m"),cg:+F.cg,d:F.d,module:F.module,att:F.att.slice(),restock:F.restock});S.mt.sort((a,b)=>a.d<b.d?-1:1);UI.note=["Meeting saved for Care Group "+F.cg+": "+F.att.length+" volunteers present."];UI.F=null;UI.keep=false;render();}};
+ savemt:()=>{const F=UI.F;UI.keep=true;if(!F.cg||!F.d||F.d>TODAY||!F.module||!F.att.length||!F.restock){F.tried=true;return render();}S.mt.push({id:uid("m"),cg:+F.cg,d:F.d,module:F.module,att:F.att.slice(),restock:F.restock});S.mt.sort((a,b)=>cmp(a.d,b.d));UI.note=["Meeting saved for Care Group "+F.cg+": "+F.att.length+" volunteers present."];UI.F=null;UI.keep=false;render();}};

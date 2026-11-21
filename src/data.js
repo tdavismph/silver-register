@@ -10,6 +10,7 @@ const dn=s=>Math.round(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))/86
 const addD=(s,n)=>{const d=new Date(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))+Math.round(n)*864e5);return d.toISOString().slice(0,10)};
 const diff=(a,b)=>dn(a)-dn(b);
 const pct=(n,d)=>d?Math.round(100*n/d):null;
+const cmp=(a,b)=>a<b?-1:a>b?1:0;   // returns 0 for ties, so every browser sorts the same way
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const sum=a=>a.reduce((x,y)=>x+y,0);
@@ -22,7 +23,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.6";
+const BUILD="0.2.7";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -163,7 +164,7 @@ function monthBill(ym,chw){const m={};
     const o=m[r.p]=m[r.p]||{p:IX.p[r.p],count:0,pend:0,other:0,travel:0,dates:new Set(),codes:new Set()},st=rowState(r);o[st]+=r.min;
     if(st==="count"){o.dates.add(r.d);const b=IX.b[r.b];o.codes.add(BAR[b.key].code);}}
   return Object.values(m).map(o=>{o.ep=epAt(o.p.id,ym);o.ok=!!o.ep&&billableEp(o.ep);o.ck=o.ep?IX.ck[o.ep.ck]:null;Object.assign(o,o.ok?units(o.count):{g19:0,g22:0,amt:0});return o;})
-    .sort((a,b)=>a.p.sort<b.p.sort?-1:1);}
+    .sort((a,b)=>cmp(a.p.sort,b.p.sort));}
 const months=()=>{const out=[];let y=+CFG.start.slice(0,4),m=+CFG.start.slice(5,7);const ty=+TODAY.slice(0,4),tm=+TODAY.slice(5,7);while(y<ty||(y===ty&&m<=tm)){out.push(y+"-"+String(m).padStart(2,"0"));m++;if(m>12){m=1;y++;}}return out;};
 const visitsDone=e=>S.a.filter(a=>a.ep===e.id&&a.kind===KINDS[0]).length;
 const lastContact=e=>{const a=S.a.filter(a=>a.ep===e.id).map(a=>a.d).sort();return a[a.length-1]||null};
@@ -172,7 +173,7 @@ const lastContact=e=>{const a=S.a.filter(a=>a.ep===e.id).map(a=>a.d).sort();retu
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const PLACES=[{n:"Laurel Fork",c:"Yancey",cg:1},{n:"Cane Hollow",c:"Yancey",cg:1},{n:"Stony Gap",c:"Mitchell",cg:2},{n:"Buck Ridge",c:"Mitchell",cg:2},{n:"Piney Knob",c:"Avery",cg:3},{n:"Elk Shoals",c:"Avery",cg:3}];
 function build(){
-  const R=rng(20261121),N=(m,sd)=>{let u=0;for(let i=0;i<6;i++)u+=R();return m+sd*(u-3)*1.414},pick=a=>a[Math.floor(R()*a.length)],ch=p=>R()<p,ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+  const R=rng(20261121),N=(m,sd)=>{let u=0;for(let i=0;i<6;i++)u+=R();return m+sd*(u-3)*1.414},pick=a=>a[Math.floor(R()*a.length)],shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;},ch=p=>R()<p,ri=(a,b)=>a+Math.floor(R()*(b-a+1));
   const FN=["Mary","Betty","Shirley","Wanda","Ruth","Doris","Brenda","Carolyn","Peggy","Linda","Glenda","Faye","Edna","Lois","Irene","Joyce","Martha","Nancy","Hazel","Opal","Ruby","Thelma","Patsy","Darlene"];
   const MN=["James","Robert","Billy","Harold","Clyde","Roy","Earl","Larry","Jerry","Dennis","Wayne","Gary","Ronnie","Carl","Ralph","Floyd","Lester","Howard","Kenneth","Dale","Vernon","Glenn","Donald","Charles"];
   const SN=["Buchanan","McKinney","Hughes","Presnell","Ledford","Hensley","Byrd","Wilson","Young","Ray","Robinson","Greene","Edwards","Tipton","Peterson","Burleson","Pittman","Honeycutt","Styles","Carpenter","Vance","Wiseman","Hicks","Phillips","Johnson","Boone","Riddle","Garland","Banks","Renfro","Shepherd"];
@@ -186,9 +187,9 @@ function build(){
           phone:"828-555-01"+String(ri(0,99)).padStart(2,"0"),bp:[],_s:N(152,12),_d:N(88,7)});k++;}}}
   index();
   // Referral checklists completed by the PA, in date order
-  const pool=S.p.slice().sort(()=>R()-.5),plan=[];
+  const pool=shuffle(S.p.slice()),plan=[];
   for(let m=0;m<=mIdx(TODAY);m++){const n=m===0?13:ri(19,24);for(let i=0;i<n;i++){const d=addD(CFG.start,m*30.4375+ri(0,29));if(d<=TODAY&&pool.length)plan.push({d,p:pool.pop()});}}
-  plan.sort((a,b)=>a.d<b.d?-1:1);
+  plan.sort((a,b)=>cmp(a.d,b.d));
   const PR={cost:.24,ride:.2,food1:.17,food2:.1,warm:.2,cool:.13,talk:.22,prem:.3,pills:.18};
   const openAt=(c,d)=>S.ep.filter(e=>e.chw===c&&e.start<=d&&e._end>d).length;
   for(const {d,p} of plan){
@@ -219,7 +220,7 @@ function build(){
         const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[0],items:[],safety:"n",note:""};S.a.push(a);vis++;
         if(!nb&&vis>=2&&ch(.13)){const k=pick(CORE.filter(c=>!bs.some(b=>b.key===c.k)).map(c=>c.k));const old=diff(TODAY,d)>10;
           nb={id:uid("b"),p:p.id,ck:ck.id,ep:e.id,key:k,links:[pick(cond)],src:"chw",status:old?(ch(.9)?"approved":"declined"):"review",d,res:null,by:chw};if(old){nb.rev=addD(d,ri(2,8));nb.revBy="pa1";}S.b.push(nb);IX.b[nb.id]=nb;}
-        const L=live().sort(()=>R()-.5).slice(0,ri(1,3)),tot=ri(75,110);
+        const L=shuffle(live()).slice(0,ri(1,3)),tot=ri(75,110);
         if(L.length){const share=Math.round(tot/L.length/5)*5;for(const b of L){row(a,b,share);
           for(const it of ITEMMAP[b.key]||[])if(!S.item.some(x=>x.p===p.id&&x.item===it)&&ch(.8)){S.item.push({id:uid("i"),p:p.id,ep:e.id,d,item:it,by:chw});a.items.push(it);}
           if(vis>=2&&ch(vis>=4?.34:.16))b.res=d;}}
@@ -238,7 +239,7 @@ function build(){
   for(const c of["chw1","chw2"]){for(let d=addD(CFG.start,3);d<=TODAY;d=addD(d,7)){S.t.push({id:uid("t"),chw:c,d,p:null,kind:NONPT[0],min:60});S.t.push({id:uid("t"),chw:c,d:addD(d,1)>TODAY?d:addD(d,1),p:null,kind:NONPT[3],min:ri(30,48)*5});}
     for(let d=addD(CFG.start,12);d<=TODAY;d=addD(d,30))S.t.push({id:uid("t"),chw:c,d,p:null,kind:NONPT[1],min:240});}
   // Two same-day safety escalations: one acknowledged, one waiting for the clinic
-  const recent=S.a.filter(a=>a.kind===KINDS[0]&&!IX.ep[a.ep].end).sort((a,b)=>a.d<b.d?1:-1);
+  const recent=S.a.filter(a=>a.kind===KINDS[0]&&!IX.ep[a.ep].end).sort((a,b)=>cmp(b.d,a.d));
   if(recent[0]){recent[0].safety="y";recent[0].safeNote="Said that life has not felt worth living since his wife died. No plan stated. Clinical supervisor called before leaving the home.";}
   const older=S.a.filter(a=>a.kind===KINDS[0]&&diff(TODAY,a.d)>40)[7];if(older){older.safety="y";older.safeNote="Space heater running beside an oxygen line. Moved it and called the supervisor.";older.safeAck=addD(older.d,0);older.safeBy="pa1";}
   // Monthly volunteer visits, the flags they pass up, handyman jobs and Care Group meetings (see vol.js)

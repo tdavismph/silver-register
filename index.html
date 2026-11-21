@@ -134,6 +134,7 @@ const dn=s=>Math.round(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))/86
 const addD=(s,n)=>{const d=new Date(Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))+Math.round(n)*864e5);return d.toISOString().slice(0,10)};
 const diff=(a,b)=>dn(a)-dn(b);
 const pct=(n,d)=>d?Math.round(100*n/d):null;
+const cmp=(a,b)=>a<b?-1:a>b?1:0;   // returns 0 for ties, so every browser sorts the same way
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const sum=a=>a.reduce((x,y)=>x+y,0);
@@ -146,7 +147,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.6";
+const BUILD="0.2.7";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -287,7 +288,7 @@ function monthBill(ym,chw){const m={};
     const o=m[r.p]=m[r.p]||{p:IX.p[r.p],count:0,pend:0,other:0,travel:0,dates:new Set(),codes:new Set()},st=rowState(r);o[st]+=r.min;
     if(st==="count"){o.dates.add(r.d);const b=IX.b[r.b];o.codes.add(BAR[b.key].code);}}
   return Object.values(m).map(o=>{o.ep=epAt(o.p.id,ym);o.ok=!!o.ep&&billableEp(o.ep);o.ck=o.ep?IX.ck[o.ep.ck]:null;Object.assign(o,o.ok?units(o.count):{g19:0,g22:0,amt:0});return o;})
-    .sort((a,b)=>a.p.sort<b.p.sort?-1:1);}
+    .sort((a,b)=>cmp(a.p.sort,b.p.sort));}
 const months=()=>{const out=[];let y=+CFG.start.slice(0,4),m=+CFG.start.slice(5,7);const ty=+TODAY.slice(0,4),tm=+TODAY.slice(5,7);while(y<ty||(y===ty&&m<=tm)){out.push(y+"-"+String(m).padStart(2,"0"));m++;if(m>12){m=1;y++;}}return out;};
 const visitsDone=e=>S.a.filter(a=>a.ep===e.id&&a.kind===KINDS[0]).length;
 const lastContact=e=>{const a=S.a.filter(a=>a.ep===e.id).map(a=>a.d).sort();return a[a.length-1]||null};
@@ -296,7 +297,7 @@ const lastContact=e=>{const a=S.a.filter(a=>a.ep===e.id).map(a=>a.d).sort();retu
 function rng(seed){let a=seed>>>0;return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const PLACES=[{n:"Laurel Fork",c:"Yancey",cg:1},{n:"Cane Hollow",c:"Yancey",cg:1},{n:"Stony Gap",c:"Mitchell",cg:2},{n:"Buck Ridge",c:"Mitchell",cg:2},{n:"Piney Knob",c:"Avery",cg:3},{n:"Elk Shoals",c:"Avery",cg:3}];
 function build(){
-  const R=rng(20261121),N=(m,sd)=>{let u=0;for(let i=0;i<6;i++)u+=R();return m+sd*(u-3)*1.414},pick=a=>a[Math.floor(R()*a.length)],ch=p=>R()<p,ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+  const R=rng(20261121),N=(m,sd)=>{let u=0;for(let i=0;i<6;i++)u+=R();return m+sd*(u-3)*1.414},pick=a=>a[Math.floor(R()*a.length)],shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(R()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;},ch=p=>R()<p,ri=(a,b)=>a+Math.floor(R()*(b-a+1));
   const FN=["Mary","Betty","Shirley","Wanda","Ruth","Doris","Brenda","Carolyn","Peggy","Linda","Glenda","Faye","Edna","Lois","Irene","Joyce","Martha","Nancy","Hazel","Opal","Ruby","Thelma","Patsy","Darlene"];
   const MN=["James","Robert","Billy","Harold","Clyde","Roy","Earl","Larry","Jerry","Dennis","Wayne","Gary","Ronnie","Carl","Ralph","Floyd","Lester","Howard","Kenneth","Dale","Vernon","Glenn","Donald","Charles"];
   const SN=["Buchanan","McKinney","Hughes","Presnell","Ledford","Hensley","Byrd","Wilson","Young","Ray","Robinson","Greene","Edwards","Tipton","Peterson","Burleson","Pittman","Honeycutt","Styles","Carpenter","Vance","Wiseman","Hicks","Phillips","Johnson","Boone","Riddle","Garland","Banks","Renfro","Shepherd"];
@@ -310,9 +311,9 @@ function build(){
           phone:"828-555-01"+String(ri(0,99)).padStart(2,"0"),bp:[],_s:N(152,12),_d:N(88,7)});k++;}}}
   index();
   // Referral checklists completed by the PA, in date order
-  const pool=S.p.slice().sort(()=>R()-.5),plan=[];
+  const pool=shuffle(S.p.slice()),plan=[];
   for(let m=0;m<=mIdx(TODAY);m++){const n=m===0?13:ri(19,24);for(let i=0;i<n;i++){const d=addD(CFG.start,m*30.4375+ri(0,29));if(d<=TODAY&&pool.length)plan.push({d,p:pool.pop()});}}
-  plan.sort((a,b)=>a.d<b.d?-1:1);
+  plan.sort((a,b)=>cmp(a.d,b.d));
   const PR={cost:.24,ride:.2,food1:.17,food2:.1,warm:.2,cool:.13,talk:.22,prem:.3,pills:.18};
   const openAt=(c,d)=>S.ep.filter(e=>e.chw===c&&e.start<=d&&e._end>d).length;
   for(const {d,p} of plan){
@@ -343,7 +344,7 @@ function build(){
         const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[0],items:[],safety:"n",note:""};S.a.push(a);vis++;
         if(!nb&&vis>=2&&ch(.13)){const k=pick(CORE.filter(c=>!bs.some(b=>b.key===c.k)).map(c=>c.k));const old=diff(TODAY,d)>10;
           nb={id:uid("b"),p:p.id,ck:ck.id,ep:e.id,key:k,links:[pick(cond)],src:"chw",status:old?(ch(.9)?"approved":"declined"):"review",d,res:null,by:chw};if(old){nb.rev=addD(d,ri(2,8));nb.revBy="pa1";}S.b.push(nb);IX.b[nb.id]=nb;}
-        const L=live().sort(()=>R()-.5).slice(0,ri(1,3)),tot=ri(75,110);
+        const L=shuffle(live()).slice(0,ri(1,3)),tot=ri(75,110);
         if(L.length){const share=Math.round(tot/L.length/5)*5;for(const b of L){row(a,b,share);
           for(const it of ITEMMAP[b.key]||[])if(!S.item.some(x=>x.p===p.id&&x.item===it)&&ch(.8)){S.item.push({id:uid("i"),p:p.id,ep:e.id,d,item:it,by:chw});a.items.push(it);}
           if(vis>=2&&ch(vis>=4?.34:.16))b.res=d;}}
@@ -362,7 +363,7 @@ function build(){
   for(const c of["chw1","chw2"]){for(let d=addD(CFG.start,3);d<=TODAY;d=addD(d,7)){S.t.push({id:uid("t"),chw:c,d,p:null,kind:NONPT[0],min:60});S.t.push({id:uid("t"),chw:c,d:addD(d,1)>TODAY?d:addD(d,1),p:null,kind:NONPT[3],min:ri(30,48)*5});}
     for(let d=addD(CFG.start,12);d<=TODAY;d=addD(d,30))S.t.push({id:uid("t"),chw:c,d,p:null,kind:NONPT[1],min:240});}
   // Two same-day safety escalations: one acknowledged, one waiting for the clinic
-  const recent=S.a.filter(a=>a.kind===KINDS[0]&&!IX.ep[a.ep].end).sort((a,b)=>a.d<b.d?1:-1);
+  const recent=S.a.filter(a=>a.kind===KINDS[0]&&!IX.ep[a.ep].end).sort((a,b)=>cmp(b.d,a.d));
   if(recent[0]){recent[0].safety="y";recent[0].safeNote="Said that life has not felt worth living since his wife died. No plan stated. Clinical supervisor called before leaving the home.";}
   const older=S.a.filter(a=>a.kind===KINDS[0]&&diff(TODAY,a.d)>40)[7];if(older){older.safety="y";older.safeNote="Space heater running beside an oxygen line. Moved it and called the supervisor.";older.safeAck=addD(older.d,0);older.safeBy="pa1";}
   // Monthly volunteer visits, the flags they pass up, handyman jobs and Care Group meetings (see vol.js)
@@ -475,10 +476,10 @@ function simVisits(R,N,pick,ch,ri){const mon=months(),ACT=["Appointment made","C
           if(f.type==="home"&&ch(.5)&&!S.item.some(x=>x.p===p.id&&x.item===VITEMS[2])){S.item.push({id:uid("i"),p:p.id,d,item:VITEMS[2],by:p.vol});v.items.push(VITEMS[2]);}}
         else{f.status="done";f.done=f.seen;f.act=f.cact=f.type==="vision"||f.type==="hearing"?pick([CACT[2],CACT[3]]):CACT[2];}}}}
   for(const cg of[1,2,3]){const vols=S.w.filter(w=>w.cg===cg);let k=0;for(const ym of mon){const d=ym+"-"+String(8+cg*2).padStart(2,"0");if(d<CFG.start||d>TODAY)continue;S.mt.push({id:uid("m"),cg,d,module:MODULES[k++%MODULES.length],att:vols.filter(()=>ch(.86)).map(w=>w.id),restock:"y"});}}
-  S.flag.sort((a,b)=>a.d<b.d?-1:1);}
+  S.flag.sort((a,b)=>cmp(a.d,b.d));}
 
 /* ---------- volunteer: due list, elders, the visit ---------- */
-const myElders=vol=>S.p.filter(p=>p.vol===vol).sort((a,b)=>a.sort<b.sort?-1:1);
+const myElders=vol=>S.p.filter(p=>p.vol===vol).sort((a,b)=>cmp(a.sort,b.sort));
 const visitedIn=(pid,ym)=>visitsOf(pid).some(v=>v.d.slice(0,7)===ym);
 const chkNames=a=>a.map(c=>CHK[c].n).join(", ");
 function volTasks(vol){const out=[],ym=TODAY.slice(0,7);
@@ -489,7 +490,7 @@ function volTasks(vol){const out=[],ym=TODAY.slice(0,7);
     const due=dueChecks(p.id,TODAY);if(due.length)why.push("Due at this visit: "+chkNames(due));
     if(e&&e.end&&e.handoff&&e.handoff.vol===vol&&diff(TODAY,e.end)<=60)why.push("Handed back from the community health worker on "+fmtD(e.end)+(e.handoff.watch.length?". Asked to keep watching: "+e.handoff.watch.map(id=>BAR[IX.b[id].key].label).join("; "):""));
     out.push({p:pr,person:p,why:why.join(". ")+"."});}
-  return out.sort((a,b)=>a.p-b.p||(a.person.sort<b.person.sort?-1:1));}
+  return out.sort((a,b)=>a.p-b.p||cmp((a.person.sort,b.person.sort)));}
 function vVToday(){const w=me(),ts=volTasks(w.id),el=myElders(w.id),ym=TODAY.slice(0,7),done=el.filter(p=>visitedIn(p.id,ym)).length;
   let h="<h1>Today</h1><p class='muted'>"+fmtD(TODAY)+". Every line says why the person is on the list.</p>"+noteHtml();
   h+='<div class="grid">'+stat("My elders",el.length)+stat("Visited in "+MON[+ym.slice(5,7)-1],done+" of "+el.length)+stat("Still to visit",ts.length)+"</div>";
@@ -560,7 +561,7 @@ function vVResults(){const w=me(),el=myElders(w.id),ids=new Set(el.map(p=>p.id))
 
 /* ---------- coordinator ---------- */
 const cgOf=p=>p.vol?IX.w[p.vol].cg:0;
-function vCFlags(){const allOpen=S.flag.filter(f=>f.to==="coord"&&f.status==="open"),batch=allOpen.filter(batched).sort((a,b)=>cgOf(IX.p[a.p])-cgOf(IX.p[b.p])||(a.d<b.d?-1:1)),open=allOpen.filter(f=>!batched(f)).sort((a,b)=>(b.urg-a.urg)||(a.d<b.d?-1:1)),urg=open.filter(f=>f.urg),atClinic=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").length;
+function vCFlags(){const allOpen=S.flag.filter(f=>f.to==="coord"&&f.status==="open"),batch=allOpen.filter(batched).sort((a,b)=>cgOf(IX.p[a.p])-cgOf(IX.p[b.p])||cmp((a.d,b.d))),open=allOpen.filter(f=>!batched(f)).sort((a,b)=>(b.urg-a.urg)||cmp((a.d,b.d))),urg=open.filter(f=>f.urg),atClinic=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").length;
   let h="<h1>Flags</h1><p class='muted'>"+fmtD(TODAY)+". Urgent flags need action the same day. The rest are reviewed at the monthly Care Group meeting.</p>"+noteHtml();
   h+='<div class="grid">'+stat("Urgent",urg.length)+stat("For the monthly review",open.length-urg.length,open.filter(f=>!f.urg&&diff(TODAY,f.d)>31).length+" have waited more than a month")+stat("Vision and hearing list",batch.length,"for the monthly meeting")+stat("Passed to the clinic, still open",atClinic)+stat("Handyman jobs open",S.job.filter(j=>j.status==="open").length)+"</div>";
   const show=UI.all?open:open.slice(0,12);
@@ -581,7 +582,7 @@ function vGroups(){const F=UI.F&&UI.F.t==="mt"?UI.F:(UI.F={t:"mt",cg:null,d:TODA
     +q("Module taught",'<select data-sel="module"><option value="">Choose the module</option>'+MODULES.map(m=>'<option'+(F.module===m?" selected":"")+">"+m+"</option>").join("")+"</select>",F.tried&&!F.module)
     +(F.cg?q("Volunteers present",multi("att",vols.map(w=>[w.id,w.name]),F.att),F.tried&&!F.att.length,"Tap each volunteer who attended."):"")+q("Were supplies restocked?",seg("restock",YN,F.restock),F.tried&&!F.restock)+'<div class="row"><button class="pri" data-act="savemt">Save the meeting</button></div></div>';
   return h;}
-function vJobs(){const open=S.job.filter(j=>j.status==="open").sort((a,b)=>a.d<b.d?-1:1),done=S.job.filter(j=>j.status==="done");
+function vJobs(){const open=S.job.filter(j=>j.status==="open").sort((a,b)=>cmp(a.d,b.d)),done=S.job.filter(j=>j.status==="done");
   let h="<h1>Work list</h1><p class='muted'>Home repairs and safety fittings for the church handyman teams, from No answers on the home safety and heating checks.</p>"+noteHtml()+'<div class="grid">'+stat("Open",open.length)+stat("Done",done.length)+stat("Oldest open",open.length?diff(TODAY,open[0].d)+" days":"None")+"</div>";
   h+=open.slice(0,UI.all?999:10).map(j=>{const p=IX.p[j.p];return'<div class="card task p3"><h3>Care Group '+cgOf(p)+" · listed "+fmtD(j.d)+"</h3><h2>"+pLink(p)+' <span class="muted small">'+esc(p.place)+" · "+esc(p.phone)+"</span></h2><ul>"+j.items.map(x=>"<li>No: "+esc(x)+"</li>").join("")+'</ul><div class="row"><button data-act="jobdone" data-id="'+j.id+'">Mark as done</button></div></div>';}).join("");
   if(open.length>10&&!UI.all)h+='<button data-act="all">Show all '+open.length+"</button>";return h;}
@@ -612,7 +613,7 @@ const XACT={
    f.cact=v;f.seen=TODAY;if(v===CACT[0]){f.to="clinic";UI.note=["Passed to the clinic. It is now on the clinic's To do list."];}else{f.status="done";f.done=TODAY;f.act=v;if(v===CACT[1]){addJob(f);UI.note=["Added to the handyman work list."];}else UI.note=["Recorded: "+v+"."];}render();},
  jobdone:d=>{const j=S.job.find(x=>x.id===d.id);j.status="done";j.done=TODAY;UI.note=["Marked as done for "+IX.p[j.p].name+"."];UI.keep=true;render();},
  vaxdone:d=>{const f=S.flag.find(x=>x.id===d.id);f.status="done";f.done=TODAY;f.act="Registry checked";UI.note=["Recorded for "+IX.p[f.p].name+"."];UI.keep=true;render();},
- savemt:()=>{const F=UI.F;UI.keep=true;if(!F.cg||!F.d||F.d>TODAY||!F.module||!F.att.length||!F.restock){F.tried=true;return render();}S.mt.push({id:uid("m"),cg:+F.cg,d:F.d,module:F.module,att:F.att.slice(),restock:F.restock});S.mt.sort((a,b)=>a.d<b.d?-1:1);UI.note=["Meeting saved for Care Group "+F.cg+": "+F.att.length+" volunteers present."];UI.F=null;UI.keep=false;render();}};
+ savemt:()=>{const F=UI.F;UI.keep=true;if(!F.cg||!F.d||F.d>TODAY||!F.module||!F.att.length||!F.restock){F.tried=true;return render();}S.mt.push({id:uid("m"),cg:+F.cg,d:F.d,module:F.module,att:F.att.slice(),restock:F.restock});S.mt.sort((a,b)=>cmp(a.d,b.d));UI.note=["Meeting saved for Care Group "+F.cg+": "+F.att.length+" volunteers present."];UI.F=null;UI.keep=false;render();}};
 /* ---------- screen state ---------- */
 const UI={who:"pa1",tab:null,mode:null,pid:null,F:null,back:null,q:"",pf:"ref",all:false,ym:TODAY.slice(0,7),note:null,keep:false};
 const me=()=>IX.w[UI.who];
@@ -673,7 +674,7 @@ function avgLoad(ym,chw){const a=ym+"-01"<CFG.start?CFG.start:ym+"-01",b=monthEn
   for(const e of S.ep){if(chw&&e.chw!==chw)continue;const s=e.start>a?e.start:a,x=e.end&&e.end<b?e.end:b;if(x>=s)t+=diff(x,s)+1;}return t/(days*n);}
 /* ---------- clinic: To do ---------- */
 function vTodo(){
-  const safe=S.a.filter(a=>a.safety==="y"&&!a.safeAck),rev=S.b.filter(b=>b.status==="review"),fl=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").sort((a,b)=>(b.urg-a.urg)||(a.d<b.d?-1:1));
+  const safe=S.a.filter(a=>a.safety==="y"&&!a.safeAck),rev=S.b.filter(b=>b.status==="review"),fl=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").sort((a,b)=>(b.urg-a.urg)||cmp((a.d,b.d)));
   let h="<h1>To do</h1><p class='muted'>"+esc(CFG.practice)+". "+fmtD(TODAY)+".</p>"+noteHtml();
   h+='<div class="grid">'+stat("Safety concerns",safe.length)+stat("Barriers to review",rev.length)+stat("Flags from volunteers",fl.length)+stat("CHW places open",placesOpen(),"aim: "+CFG.caseMax+" patients for each CHW")+S.w.filter(w=>w.role==="chw").map(w=>{const n=openOf(w.id).length;return stat(w.name,n+" of "+CFG.caseMax,"patients in an episode now");}).join("")+"</div>";
   for(const a of safe){const p=IX.p[a.p];h+='<div class="card task p1"><h3>Safety concern reported the same day</h3><h2>'+pLink(p)+' <span class="muted small">'+esc(p.mrn)+"</span></h2><p>"+esc(a.safeNote)+"</p><p class='small muted'>Reported by "+esc(IX.w[a.chw].name)+" at a "+a.kind.toLowerCase()+" on "+fmtD(a.d)+'.</p><div class="row"><button class="pri" data-act="ack" data-id="'+a.id+'">I have seen this and acted</button></div></div>';}
@@ -701,7 +702,7 @@ function ckMissing(F){const m=[],ok=covOK(F.cov),full=ok||F.cov.partB==null||F.c
 function vCk(){const F=UI.F,T=F.tried?ckMissing(F):[],miss=k=>T.includes(k),ok=covOK(F.cov),covDone=F.cov.partB!=null&&F.cov.notElse!=null&&F.cov.path!=null,stop=covDone&&!ok,keys=ckKeys(F);
   const condBtns=F.cond.filter(L=>L!=="O"||F.other.trim()).map(L=>[L,L==="O"?"Other":L+" "+COND[L][0]]);
   const linkRow=k=>BAR[k].cond||F.cond.length<2?"":'<div><p class="small muted">Which condition does this barrier obstruct? Tick every one that applies.</p>'+multi("links."+k,condBtns,F.links[k])+"</div>";
-  const pts=S.p.filter(p=>!openEp(p.id)).sort((a,b)=>a.sort<b.sort?-1:1);
+  const pts=S.p.filter(p=>!openEp(p.id)).sort((a,b)=>cmp(a.sort,b.sort));
   let h="<h1>Home-visit referral checklist</h1><p class='muted'>Authorizes Medicare-billable CHW home visits. Complete at the initiating visit (E/M or Annual Wellness Visit). Target time: 5 minutes. Version 4.</p>";
   if(F.tried&&T.length)h+='<div class="note bad">Some answers are missing. They are marked in red.</div>';
   h+='<div class="card">'+q("Patient",'<select data-sel="pid"><option value="">Choose a patient</option><option value="new"'+(F.pid==="new"?" selected":"")+">New patient (not on this list)</option>"+pts.map(p=>'<option value="'+p.id+'"'+(F.pid===p.id?" selected":"")+">"+esc(p.name)+", "+p.age+" ("+esc(p.mrn)+")</option>").join("")+"</select>"+(F.pid==="new"?'<div class="row">'+txt("nw.name",F.nw.name,"Full name","220px")+txt("nw.mrn",F.nw.mrn,"MRN","130px")+'<input type="date" data-n="nw.dob" value="'+esc(F.nw.dob)+'" aria-label="Date of birth"></div>':""),miss("pid")||miss("nw"),"Patients already in a CHW episode are not listed.")
@@ -761,7 +762,7 @@ function vPerson(){const p=IX.p[UI.pid],w=me(),c=lastCk(p.id),e=lastEp(p.id),ope
   const ap=S.app.filter(a=>a.p===p.id),it=S.item.filter(a=>a.p===p.id);
   if(ap.length)h+='<div class="card"><h3>Applications and referrals</h3>'+tbl(["Program","Started","Status"],ap.map(a=>"<tr><td>"+esc(a.type)+"</td><td>"+fmtD(a.d)+"</td><td>"+chip(a.status==="approved"?"Approved "+fmtD(a.dec):a.status==="declined"?"Declined "+fmtD(a.dec):a.status==="submitted"?"Submitted "+fmtD(a.sub):"Started",a.status==="approved"?"good":a.status==="declined"?"bad":"warn")+"</td></tr>"))+"</div>";
   if(it.length)h+='<div class="card"><h3>Items delivered</h3><p>'+it.map(a=>esc(a.item)+" ("+fmtD(a.d)+")").join("; ")+"</p></div>";
-  const acts=S.a.filter(a=>a.p===p.id).sort((a,b)=>a.d<b.d?1:-1);
+  const acts=S.a.filter(a=>a.p===p.id).sort((a,b)=>cmp(b.d,a.d));
   if(acts.length)h+='<div class="card"><h3>CHW work, most recent first</h3>'+tbl(["Date","Work","#Minutes","Note"],acts.slice(0,UI.all?999:8).map(a=>{const rows=S.t.filter(r=>r.a===a.id);return"<tr><td>"+fmtD(a.d)+"</td><td>"+esc(a.kind)+(a.bp?'<div class="small muted">Blood pressure '+a.bp.s+"/"+a.bp.di+"</div>":"")+"</td><td class='n'>"+sum(rows.filter(r=>r.kind!=="Travel").map(r=>r.min))+"</td><td class='small'>"+(a.safety==="y"?chip("Safety concern","bad")+" "+esc(a.safeNote):esc(a.note||""))+"</td></tr>";}))+(acts.length>8&&!UI.all?'<button data-act="all">Show all '+acts.length+"</button>":"")+"</div>";
   const fl=S.flag.filter(f=>f.p===p.id);
   if(fl.length)h+='<div class="card"><h3>Flagged by the volunteer visitor</h3>'+tbl(["Date","Flag","Status"],fl.slice().reverse().map(f=>"<tr><td>"+fmtD(f.d)+"</td><td>"+esc(FLAGS[f.type][0])+"</td><td>"+(f.status==="done"?chip(f.act,"good"):chip("Open","warn"))+"</td></tr>"))+"</div>";
@@ -770,7 +771,7 @@ function vPerson(){const p=IX.p[UI.pid],w=me(),c=lastCk(p.id),e=lastEp(p.id),ope
 /* ---------- clinic: patients ---------- */
 function vPatients(){const ym=TODAY.slice(0,7),mb=Object.fromEntries(monthBill(ym).map(o=>[o.p.id,o])),qq=UI.q.trim().toLowerCase();
   const F={ref:["Referred with the checklist",p=>lastCk(p.id)],ep:["In a CHW episode now",p=>openEp(p.id)],vol:["Routed to a volunteer visitor",p=>{const c=lastCk(p.id);return c&&(c.route==="vol"||(c.route==="both"&&!openEp(p.id)));}],cl:["Clinic action only",p=>(lastCk(p.id)||{}).route==="clinic"],no:["No checklist yet",p=>!lastCk(p.id)],all:["Everyone on the register",()=>true]};
-  let L=S.p.filter(F[UI.pf][1]).filter(p=>!qq||p.name.toLowerCase().includes(qq)||p.mrn.toLowerCase().includes(qq)).sort((a,b)=>a.sort<b.sort?-1:1);
+  let L=S.p.filter(F[UI.pf][1]).filter(p=>!qq||p.name.toLowerCase().includes(qq)||p.mrn.toLowerCase().includes(qq)).sort((a,b)=>cmp(a.sort,b.sort));
   let h="<h1>Patients</h1>"+'<div class="row"><select id="pf" aria-label="Show">'+Object.keys(F).map(k=>'<option value="'+k+'"'+(k===UI.pf?" selected":"")+">"+F[k][0]+"</option>").join("")+'</select><input id="q" type="search" placeholder="Name or MRN" value="'+esc(UI.q)+'" class="grow"></div><p class="muted small">'+L.length+" people. Example data: every person is fictitious.</p>";
   const show=UI.all?L:L.slice(0,40);
   h+='<div class="card">'+tbl(["Name","#Age","Community","Destination","CHW episode","#Countable minutes, "+MON[+ym.slice(5,7)-1]],show.map(p=>{const c=lastCk(p.id),e=lastEp(p.id);return"<tr><td>"+pLink(p)+'<div class="small muted">'+esc(p.mrn)+"</div></td><td class='n'>"+p.age+"</td><td>"+esc(p.place)+"</td><td>"+(c?chip(...ROUTECHIP[c.route]):"")+"</td><td>"+(e?(e.end?"Closed "+fmtD(e.end):"Day "+epDay(e)+" of "+CFG.epDays):"")+"</td><td class='n'>"+(mb[p.id]?mb[p.id].count:"")+"</td></tr>";}))+(L.length>40&&!UI.all?'<button data-act="all">Show all '+L.length+"</button>":"")+"</div>";
@@ -813,7 +814,7 @@ function vToday(){const w=me(),ts=tasks(w.id),n=openOf(w.id).length,ym=TODAY.sli
   h+='<div class="grid">'+stat("Patients in an episode",n+" of "+CFG.caseMax,n>CFG.caseMax?"Above the limit":n>=CFG.caseLow?"Within the usual range of "+CFG.caseLow+" to "+CFG.caseMax:"Room for "+(CFG.caseLow-n)+" more before the usual range")+stat("Priority",ts.filter(t=>t.p===1).length)+stat("Due",ts.filter(t=>t.p===2).length)+stat("Countable hours this month",hrs(sum(mb.map(o=>o.count))))+"</div>";
   h+=ts.map(t=>'<div class="card task p'+t.p+'"><div class="row"><div class="grow"><h3>'+(t.p===1?"Priority":t.p===2?"Due":"To prepare")+" · day "+t.d+" of "+CFG.epDays+"</h3><h2>"+esc(t.person.name)+' <span class="muted small">'+esc(t.person.place)+"</span></h2><p class='small'>"+esc(t.why)+'</p></div><button class="pri" data-pid="'+t.person.id+'">Open</button></div></div>').join("");
   if(!ts.length)h+='<div class="note">Nothing is due today.</div>';return h;}
-function vMine(){const w=me(),open=openOf(w.id).sort((a,b)=>epDay(b)-epDay(a)),closed=S.ep.filter(e=>e.chw===w.id&&e.end).sort((a,b)=>a.end<b.end?1:-1),ym=TODAY.slice(0,7),mb=Object.fromEntries(monthBill(ym,w.id).map(o=>[o.p.id,o]));
+function vMine(){const w=me(),open=openOf(w.id).sort((a,b)=>epDay(b)-epDay(a)),closed=S.ep.filter(e=>e.chw===w.id&&e.end).sort((a,b)=>cmp(b.end,a.end)),ym=TODAY.slice(0,7),mb=Object.fromEntries(monthBill(ym,w.id).map(o=>[o.p.id,o]));
   let h="<h1>My patients</h1><p class='muted'>"+open.length+" in an episode now. The limit is "+CFG.caseMax+" at one time.</p>"+noteHtml();
   h+='<div class="card">'+tbl(["Patient","#Day","#Home visits","#Open barriers","#Countable minutes, "+MON[+ym.slice(5,7)-1],""],open.map(e=>{const p=IX.p[e.p],d=epDay(e);return"<tr><td>"+pLink(p)+'<div class="small muted">'+esc(p.place)+"</div></td><td class='n'>"+(d>CFG.epDays?chip(d+" of "+CFG.epDays,"bad"):d+" of "+CFG.epDays)+"</td><td class='n'>"+visitsDone(e)+" of "+CFG.visitDays.length+"</td><td class='n'>"+S.b.filter(b=>b.ep===e.id&&!b.res&&b.status!=="declined").length+"</td><td class='n'>"+((mb[p.id]||{}).count||0)+'</td><td><button data-act="work" data-id="'+p.id+'">Record work</button></td></tr>';}))+"</div>";
   h+='<div class="card"><h3>Closed episodes ('+closed.length+")</h3>"+tbl(["Patient","Closed","Result","Handed off to"],closed.slice(0,UI.all?999:10).map(e=>"<tr><td>"+pLink(IX.p[e.p])+"</td><td>"+fmtD(e.end)+"</td><td>"+esc(e.handoff.reason)+"</td><td>"+(e.handoff.vol?esc(IX.w[e.handoff.vol].name):"")+"</td></tr>"))+(closed.length>10&&!UI.all?'<button data-act="all">Show all '+closed.length+"</button>":"")+"</div>";
