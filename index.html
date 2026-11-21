@@ -142,7 +142,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.1";
+const BUILD="0.1.1";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -296,7 +296,7 @@ function build(){
   const FN=["Mary","Betty","Shirley","Wanda","Ruth","Doris","Brenda","Carolyn","Peggy","Linda","Glenda","Faye","Edna","Lois","Irene","Joyce","Martha","Nancy","Hazel","Opal","Ruby","Thelma","Patsy","Darlene"];
   const MN=["James","Robert","Billy","Harold","Clyde","Roy","Earl","Larry","Jerry","Dennis","Wayne","Gary","Ronnie","Carl","Ralph","Floyd","Lester","Howard","Kenneth","Dale","Vernon","Glenn","Donald","Charles"];
   const SN=["Buchanan","McKinney","Hughes","Presnell","Ledford","Hensley","Byrd","Wilson","Young","Ray","Robinson","Greene","Edwards","Tipton","Peterson","Burleson","Pittman","Honeycutt","Styles","Carpenter","Vance","Wiseman","Hicks","Phillips","Johnson","Boone","Riddle","Garland","Banks","Renfro","Shepherd"];
-  S.w.push({id:"pa1",role:"clinic",name:"Erin Calloway, PA-C"},{id:"chw1",role:"chw",name:"Tasha Greer"},{id:"chw2",role:"chw",name:"Luke Hollifield"},{id:"adm",role:"admin",name:"Administrator"},{id:"co1",role:"coord",name:"Anne Mace, RN"});
+  S.w.push({id:"pa1",role:"clinic",name:"Nathan Davis, PA"},{id:"chw1",role:"chw",name:"Tasha Greer"},{id:"chw2",role:"chw",name:"Luke Hollifield"},{id:"adm",role:"admin",name:"Administrator"},{id:"co1",role:"coord",name:"Anne Mace, RN"});
   for(let i=1;i<=36;i++){const f=ch(.7);S.w.push({id:"v"+i,role:"vol",name:pick(f?FN:MN)+" "+pick(SN),cg:Math.ceil(i/12)});}
   let hn=0;
   for(const v of S.w.filter(w=>w.role==="vol")){const pl=PLACES.filter(x=>x.cg===v.cg);let k=0;

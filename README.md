@@ -2,7 +2,7 @@
 
 A home visit register for the SILVER program (healthy aging through home visitation in the Appalachian High Country of western North Carolina). It follows the pattern of the CBIO Cardiometabolic Disease Register and the CBIO+ Home Visit Register.
 
-**Build 0.1. Example data only.** Every person, worker, clinic and community in the app is fictitious. Nothing is stored and nothing leaves the device; records entered are lost when the page is closed.
+**Build 0.1.1. Example data only.** Every person, worker, clinic and community in the app is fictitious. Nothing is stored and nothing leaves the device; records entered are lost when the page is closed.
 
 A version holding real patients would contain health information covered by HIPAA. Sign-in and a database will be added only after the clinic's compliance officer has confirmed the hosting, the written agreements required, and what congregational volunteers may see.
 
