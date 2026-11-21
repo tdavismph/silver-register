@@ -142,7 +142,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.2";
+const BUILD="0.2.3";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -398,6 +398,8 @@ const itemOpts=(c,i)=>(CHK[c].na||[]).includes(i)?YNXA:CHK[c].opts;
 const FLAGTXT={bp:"Blood pressure above the line on the card",mood:"Mood questions: score above the line on the card",fall:"A fall since the last visit",meds:"Medicines ran out or were not refilled",food:"Food questions: a positive answer",
  home:"Home safety check: one or more No answers",heat:"Heating check: No on heat, warmth, fuel or shutoff notice",heatsafe:"Heating check: No on a fire or alarm item",cool:"Cooling check: one or more No answers",vax:"Vaccine checklist: a No or Not sure",vision:"Vision check: one or more No answers",hearing:"Hearing check",safety:"Safety concern"};
 for(const k in FLAGS)delete FLAGS[k];for(const k in FLAGTXT)FLAGS[k]=[FLAGTXT[k],k==="vax"?"clinic":"coord"];
+/* Plain names for the message a volunteer reads after saving a visit. */
+const VMSG={bp:"the blood pressure readings",mood:"the answers to the mood questions",fall:"the fall",meds:"the medicine that ran out",food:"the answers to the food questions",home:"the No answers on the home safety check",heat:"the No answers on the heating check",heatsafe:"the No answers on heater and alarm safety",cool:"the No answers on the cooling check",vax:"the vaccines the person has not had or is not sure about",vision:"the No answers on the vision check",hearing:"the answers on the hearing check",safety:"the safety concern"};
 const CLINICT=["bp","mood","fall","meds","safety"],JOBT=["home","heatsafe"],BATCHT=["vision","hearing"];
 const batched=f=>BATCHT.includes(f.type)&&!f.urg;   // reviewed together at the monthly Care Group meeting, not one by one
 const CACT=["Passed to the clinic","Put on the handyman work list","Resource referral made","Asked the volunteer to follow up at the next visit","No action needed"];
@@ -439,9 +441,9 @@ function visitFlags(v){const out=[],add=(type,detail,urg)=>out.push({type,detail
    and a vaccine gap is not sent to the clinic for a person seen there within CFG.noRepeat days. Urgent flags always pass. */
 function raiseFlags(v){const made=[],held=[];
   for(const x of visitFlags(v)){const same=S.flag.filter(f=>f.p===v.p&&f.type===x.type);
-    if(!x.urg){if(same.some(f=>f.status==="open")){held.push(FLAGS[x.type][0]+" (already open)");continue;}
-      if(x.type==="bp"&&same.some(f=>diff(v.d,f.d)<90)){held.push(FLAGS.bp[0]+" (flagged within 90 days)");continue;}
-      const c=lastCk(v.p);if(x.type==="vax"&&c&&diff(v.d,c.d)>=0&&diff(v.d,c.d)<=CFG.noRepeat){held.push(FLAGS.vax[0]+" (seen at the clinic on "+fmtD(c.d)+")");continue;}}
+    if(!x.urg){if(same.some(f=>f.status==="open")){held.push(VMSG[x.type]+" (the earlier report is still being dealt with)");continue;}
+      if(x.type==="bp"&&same.some(f=>diff(v.d,f.d)<90)){held.push(VMSG.bp+" (reported in the last 90 days)");continue;}
+      const c=lastCk(v.p);if(x.type==="vax"&&c&&diff(v.d,c.d)>=0&&diff(v.d,c.d)<=CFG.noRepeat){held.push(VMSG.vax+" (the person was at the clinic on "+fmtD(c.d)+")");continue;}}
     const f={id:uid("f"),p:v.p,v:v.id,d:v.d,by:v.vol,type:x.type,detail:x.detail,urg:x.urg,to:FLAGS[x.type][1],status:"open"};S.flag.push(f);made.push(f);}
   return{made,held};}
 function addJob(f){const j={id:uid("j"),p:f.p,f:f.id,d:f.d,items:f.detail.split(" | "),status:"open"};S.job.push(j);return j;}
@@ -536,8 +538,15 @@ function saveVisit(){const F=UI.F,p=IX.p[F.pid],s=+F.s,d=+F.di;let bad=!F.bpTake
   const v={id:uid("v"),p:p.id,vol:UI.who,d:TODAY,bp:F.bpTaken==="y"?{s,di:d}:null,ev:{...F.ev},safeNote:F.safeNote.trim(),hearWhy:F.hearWhy.trim(),temp:F.temp,checks:{},items:F.items.slice(),note:F.note.trim()};
   for(const c of CHKS)if(F.on[c]==="y"){v.checks[c]={};CHK[c].items.forEach((x,i)=>{if(asked(c,F.a[c],i))v.checks[c][i]=F.a[c][i];});}
   addVisit(v);for(const it of v.items)S.item.push({id:uid("i"),p:p.id,d:TODAY,item:it,by:UI.who});
-  const r=raiseFlags(v),urg=r.made.filter(f=>f.urg);
-  UI.note=["Visit saved. "+(r.made.length?"Passed up: "+r.made.map(f=>FLAGS[f.type][0]+(f.to==="clinic"?" (to the clinic)":"")).join("; ")+".":"Nothing needed to be passed up.")+(r.held.length?" Not passed up again: "+r.held.join("; ")+".":"")+(urg.length?" Call the coordinator today about: "+urg.map(f=>FLAGS[f.type][0]).join("; ")+".":""),urg.length?"bad":""];
+  const r=raiseFlags(v),urg=r.made.filter(f=>f.urg),names=a=>a.map(f=>VMSG[f.type]).join("; "),L=["Visit saved for "+p.name+"."];
+  if(urg.length)L.push("CALL THE COORDINATOR TODAY about "+names(urg)+".");
+  const co=r.made.filter(f=>!f.urg&&f.to==="coord"),cl=r.made.filter(f=>!f.urg&&f.to==="clinic");
+  if(co.length)L.push("Sent to the coordinator, who will review at the monthly meeting: "+names(co)+".");
+  if(cl.length)L.push("Sent to the clinic: "+names(cl)+".");
+  if(r.held.length)L.push("Already reported, so not sent again: "+r.held.join("; ")+".");
+  if(!r.made.length&&!r.held.length)L.push("Nothing from this visit needed to be sent to anyone.");
+  L.push("You do not need to do anything else"+(urg.length?" after the call.":"."));
+  UI.note=[L.join("\n"),urg.length?"bad":""];
   UI.F=null;UI.mode="elder";render();}
 function vVResults(){const w=me(),el=myElders(w.id),ids=new Set(el.map(p=>p.id)),ms=months().slice(-6),V=S.v.filter(v=>v.vol===w.id),fl=S.flag.filter(f=>f.by===w.id),mt=S.mt.filter(m=>m.cg===w.cg);
   let h="<h1>My results</h1>"+'<div class="grid">'+stat("Visits made",V.length)+stat("Flags passed up",fl.length,fl.filter(f=>f.status==="done").length+" closed")+stat("Care Group meetings attended",mt.filter(m=>m.att.includes(w.id)).length+" of "+mt.length)+"</div>";
@@ -632,7 +641,7 @@ const ROUTECHIP={chw:["CHW episode","info"],both:["CHW episode, then volunteer",
 const bStat=b=>b.res?chip("Resolved "+fmtD(b.res),"good"):b.status==="review"?chip("Waiting for the practitioner's review","warn"):b.status==="declined"?chip("Not added to the plan","bad"):b.src==="chw"?chip("Added to the plan "+fmtD(b.rev),"info"):chip("In the plan","info");
 const linkTxt=(b)=>b.links.join(", ");
 const ymSel=()=>'<select id="ym" aria-label="Month">'+months().reverse().map(m=>'<option value="'+m+'"'+(m===UI.ym?" selected":"")+">"+fmtYM(m)+(m===TODAY.slice(0,7)?" (in progress)":"")+"</option>").join("")+"</select>";
-const noteHtml=()=>{if(!UI.note)return"";const n=UI.note;UI.note=null;return '<div class="note '+(n[1]||"")+'">'+esc(n[0])+"</div>";};
+const noteHtml=()=>{if(!UI.note)return"";const n=UI.note;UI.note=null;return '<div class="note '+(n[1]||"")+'">'+esc(n[0]).split("\n").join("<br>")+"</div>";};
 
 /* ---------- clinic: To do ---------- */
 function vTodo(){

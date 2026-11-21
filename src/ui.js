@@ -30,7 +30,7 @@ const ROUTECHIP={chw:["CHW episode","info"],both:["CHW episode, then volunteer",
 const bStat=b=>b.res?chip("Resolved "+fmtD(b.res),"good"):b.status==="review"?chip("Waiting for the practitioner's review","warn"):b.status==="declined"?chip("Not added to the plan","bad"):b.src==="chw"?chip("Added to the plan "+fmtD(b.rev),"info"):chip("In the plan","info");
 const linkTxt=(b)=>b.links.join(", ");
 const ymSel=()=>'<select id="ym" aria-label="Month">'+months().reverse().map(m=>'<option value="'+m+'"'+(m===UI.ym?" selected":"")+">"+fmtYM(m)+(m===TODAY.slice(0,7)?" (in progress)":"")+"</option>").join("")+"</select>";
-const noteHtml=()=>{if(!UI.note)return"";const n=UI.note;UI.note=null;return '<div class="note '+(n[1]||"")+'">'+esc(n[0])+"</div>";};
+const noteHtml=()=>{if(!UI.note)return"";const n=UI.note;UI.note=null;return '<div class="note '+(n[1]||"")+'">'+esc(n[0]).split("\n").join("<br>")+"</div>";};
 
 /* ---------- clinic: To do ---------- */
 function vTodo(){
