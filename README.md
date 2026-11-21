@@ -2,7 +2,7 @@
 
 A home visit register for the SILVER program (healthy aging through home visitation in the Appalachian High Country of western North Carolina). It follows the pattern of the CBIO Cardiometabolic Disease Register and the CBIO+ Home Visit Register.
 
-**Build 0.2.8. Example data only.** Every person, worker, clinic and community in the app is fictitious. Nothing is stored and nothing leaves the device; records entered are lost when the page is closed.
+**Build 0.2.9. Example data only.** Every person, worker, clinic and community in the app is fictitious. Nothing is stored and nothing leaves the device; records entered are lost when the page is closed.
 
 A version holding real patients would contain health information covered by HIPAA. Sign-in and a database will be added only after the clinic's compliance officer has confirmed the hosting, the written agreements required, and what congregational volunteers may see.
 
@@ -33,4 +33,4 @@ Quality checklists for home visits come in a later build.
 - `sw.js` keeps the app available offline. Change `VERSION` in it on every build, or tablets keep the old files.
 - `test/run.js` opens every screen for every role at 390, 820 and 1100 pixels and runs the main flows (`PW=<path to playwright> node test/run.js`).
 
-The example data is generated from a seeded random-number generator, so every visitor sees the same fictitious program in its eighth month.
+The example data is generated from a seeded random-number generator, so every visitor sees the same fictitious program in its eighth month. Its billing figures are set to illustrate the planning assumption in the SILVER pitch deck (about 60% of a CHW's paid hours billed, about six billable hours per patient per month, CHWs at or near 15 patients). They are an illustration of the plan, not evidence that it can be reached.

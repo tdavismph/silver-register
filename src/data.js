@@ -23,7 +23,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.8";
+const BUILD="0.2.9";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -192,7 +192,7 @@ function build(){
   index();
   // Referral checklists completed by the PA, in date order
   const pool=shuffle(S.p.slice()),plan=[];
-  for(let m=0;m<=mIdx(TODAY);m++){const n=m===0?13:ri(19,24);for(let i=0;i<n;i++){const d=addD(CFG.start,m*30.4375+ri(0,29));if(d<=TODAY&&pool.length)plan.push({d,p:pool.pop()});}}
+  for(let m=0;m<=mIdx(TODAY);m++){const n=m===0?16:ri(27,32);for(let i=0;i<n;i++){const d=addD(CFG.start,m*30.4375+ri(0,29));if(d<=TODAY&&pool.length)plan.push({d,p:pool.pop()});}}
   plan.sort((a,b)=>cmp(a.d,b.d));
   const PR={cost:.24,ride:.2,food1:.17,food2:.1,warm:.2,cool:.13,talk:.22,prem:.3,pills:.18};
   const openAt=(c,d)=>S.ep.filter(e=>e.chw===c&&e.start<=d&&e._end>d).length;
@@ -205,9 +205,9 @@ function build(){
     const obs=OBS.filter(()=>ch(.07)).map(o=>o[0]);keys.push(...obs);
     for(const k of keys)links[k]=BAR[k].cond?[BAR[k].cond]:[pick(cond)];
     const trig=TRIG.map((t,i)=>i).filter(i=>ch(.13));
-    const ok=covOK(cov),frail=cond.includes("H")||(cond.includes("D")&&ch(.4))||keys.length>=5;
-    let route=!ok?"vol":frail&&keys.length?(ch(.3)?"both":"chw"):!keys.length?(ch(.6)?"clinic":"vol"):(u=>u<.74?"vol":u<.86?"clinic":"chw")(R());
-    let chw=null;if(route==="chw"||route==="both"){chw=openAt("chw1",d)<=openAt("chw2",d)?"chw1":"chw2";if(openAt(chw,d)>=CFG.caseMax-1){route="vol";chw=null;}}
+    const ok=covOK(cov),frail=cond.includes("H")||(cond.includes("D")&&ch(.5))||keys.length>=5;
+    let route=!ok?"vol":frail&&keys.length?(ch(.3)?"both":"chw"):!keys.length?(ch(.6)?"clinic":"vol"):(u=>u<.72?"vol":u<.84?"clinic":"chw")(R());
+    let chw=null;if(route==="chw"||route==="both"){chw=openAt("chw1",d)<=openAt("chw2",d)?"chw1":"chw2";if(openAt(chw,d)>=CFG.caseMax-(chw==="chw2"?1:0)){route="vol";chw=null;}}   // leaves one CHW place open in the example
     const ck={id:uid("k"),p:p.id,d,by:"pa1",vt:cond.includes("H")&&ch(.5)?"TCM":pick(["E/M","Annual Wellness Visit"]),cov,cond,core,blk,links,obs,trig,route,signed:!!chw};S.ck.push(ck);IX.ck[ck.id]=ck;
     const bs=keys.map(k=>{const b={id:uid("b"),p:p.id,ck:ck.id,key:k,links:links[k],src:"checklist",status:"plan",d,res:null};S.b.push(b);IX.b[b.id]=b;return b;});
     if(chw)episode(p,ck,chw,bs,cond);}
@@ -215,7 +215,7 @@ function build(){
     const early=ch(.08),len=early?ri(20,70):ri(88,94),e={id:uid("e"),p:p.id,ck:ck.id,chw,start:ck.d,_end:addD(ck.d,len)};S.ep.push(e);IX.ep[e.id]=e;
     for(const b of bs)b.ep=e.id;
     const closing=e._end<=TODAY&&!(diff(TODAY,e._end)<=5&&ch(.6));const last=closing?e._end:TODAY;
-    const ev=[];CFG.visitDays.forEach((o,i)=>ev.push([o+ri(-2,2),"v",i]));[9,22,36,52,60,74,80].forEach(o=>{if(ch(.85))ev.push([o+ri(-1,2),"c"]);});[5,12,20,33,48,70].forEach(o=>{if(ch(.85))ev.push([o+ri(-1,2),"w"]);});
+    const ev=[];CFG.visitDays.forEach((o,i)=>ev.push([o+ri(-2,2),"v",i]));[9,22,36,52,60,74,80].forEach(o=>{if(ch(.9))ev.push([o+ri(-1,2),"c"]);});[5,12,20,26,33,40,48,58,70,78].forEach(o=>{if(ch(.85))ev.push([o+ri(-1,2),"w"]);});
     ev.sort((a,b)=>a[0]-b[0]);let stopped=false,nb=null,vis=0;
     const live=()=>S.b.filter(b=>b.ep===e.id&&!b.res&&b.status!=="declined");
     const row=(a,b,min,kind)=>S.t.push({id:uid("t"),a:a?a.id:null,chw,d:a.d,p:p.id,ep:e.id,kind:kind||a.kind,b:b?b.id:null,min});
@@ -224,7 +224,7 @@ function build(){
         const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[0],items:[],safety:"n",note:""};S.a.push(a);vis++;
         if(!nb&&vis>=2&&ch(.13)){const k=pick(CORE.filter(c=>!bs.some(b=>b.key===c.k)).map(c=>c.k));const old=diff(TODAY,d)>10;
           nb={id:uid("b"),p:p.id,ck:ck.id,ep:e.id,key:k,links:[pick(cond)],src:"chw",status:old?(ch(.9)?"approved":"declined"):"review",d,res:null,by:chw};if(old){nb.rev=addD(d,ri(2,8));nb.revBy="pa1";}S.b.push(nb);IX.b[nb.id]=nb;}
-        const L=shuffle(live()).slice(0,ri(1,3)),tot=ri(75,110);
+        const L=shuffle(live()).slice(0,ri(1,3)),tot=ri(95,135);
         if(L.length){const share=Math.round(tot/L.length/5)*5;for(const b of L){row(a,b,share);
           for(const it of ITEMMAP[b.key]||[])if(!S.item.some(x=>x.p===p.id&&x.item===it)&&ch(.8)){S.item.push({id:uid("i"),p:p.id,ep:e.id,d,item:it,by:chw});a.items.push(it);}
           if(vis>=2&&ch(vis>=4?.34:.16))b.res=d;}}
@@ -232,8 +232,8 @@ function build(){
         if(ch(.3))row(a,null,ri(2,4)*5);
         row(a,null,ri(6,13)*5,"Travel");
         if(cond.includes("A")){const drop=Math.min(14,vis*3.2);const s=Math.round(p._s-drop+N(0,6)),di=Math.round(p._d-drop*.5+N(0,4));a.bp={s,di};p.bp.push({d,s,di,by:chw});}}
-      else if(ty==="c"){const L=live();const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[1],items:[],safety:"n",note:""};S.a.push(a);row(a,L.length?pick(L):null,ri(12,25));}
-      else{const L=live(),withApp=L.filter(b=>APPMAP[b.key]),b=withApp.length&&ch(.75)?pick(withApp):(L.length?pick(L):null);const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[2],items:[],safety:"n",note:""};S.a.push(a);row(a,b,ri(5,11)*5);
+      else if(ty==="c"){const L=live();const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[1],items:[],safety:"n",note:""};S.a.push(a);row(a,L.length?pick(L):null,ri(3,6)*5);}
+      else{const L=live(),withApp=L.filter(b=>APPMAP[b.key]),b=withApp.length&&ch(.75)?pick(withApp):(L.length?pick(L):null);const a={id:uid("a"),chw,d,p:p.id,ep:e.id,kind:KINDS[2],items:[],safety:"n",note:""};S.a.push(a);row(a,b,ri(6,12)*5);
         if(b&&APPMAP[b.key]){const type=pick(APPMAP[b.key]);let ap=S.app.find(x=>x.p===p.id&&x.type===type);
           if(!ap)S.app.push({id:uid("ap"),p:p.id,ep:e.id,b:b.id,type,d,status:"started"});
           else if(ap.status==="started"){ap.status="submitted";ap.sub=d;const dec=addD(d,ri(18,45));if(dec<=TODAY&&ch(.88)){ap.status=ch(.86)?"approved":"declined";ap.dec=dec;if(ap.status==="approved"&&!IX.b[ap.b].res&&ch(.7))IX.b[ap.b].res=dec;}}}}}
