@@ -11,6 +11,8 @@ const {chromium}=require(process.env.PW||"playwright");const path=require("path"
     for(const who of ["pa1","chw1","chw2","co1","v1","v13","adm"]){await pg.selectOption("#role",who);const tabs=await pg.$$eval("#nav button",a=>a.map(x=>x.dataset.tab));
       for(const t of tabs){await pg.click('#nav [data-tab="'+t+'"]');await check(who+"/"+t);
         const link=await pg.$("#app [data-pid]");if(link){await link.click();await check(who+"/"+t+"/person");const all=await pg.$('#app [data-act="all"]');if(all){await all.click();await check(who+"/"+t+"/person/all");}await pg.click('[data-act="back"]');}}}
+    // information buttons open and close
+    await pg.selectOption("#role","adm");await pg.click('[data-tab="reports"]');const ni=await pg.$$eval("[data-info]",a=>a.length);if(ni<2)fail(w+" info buttons missing: "+ni);await pg.click("[data-info]");if(await pg.$eval(".infotxt",e=>e.hidden))fail(w+" info did not open");await check("info/open");await pg.click("[data-info]");if(!await pg.$eval(".infotxt",e=>e.hidden))fail(w+" info did not close");
     // flow 1: the PA completes a checklist and routes to a CHW episode
     await pg.selectOption("#role","pa1");await pg.click('[data-tab="newref"]');await pg.click('[data-act="saveck"]');await check("ck/empty-tried");
     const before=await pg.evaluate(()=>[S.ep.length,S.b.length,S.ck.length]);

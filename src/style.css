@@ -99,3 +99,7 @@ input[type=date]{min-width:150px}
 .minrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-block:8px;border-top:1px solid var(--line)}
 .minrow:first-of-type{border-top:0}
 .big{overflow-wrap:anywhere}
+.info{min-height:0;min-width:0;width:26px;height:26px;padding:0;margin-left:4px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font:italic 700 14px/1 Georgia,"Times New Roman",serif;text-transform:none;letter-spacing:0;vertical-align:middle;cursor:pointer;position:relative}
+.info::after{content:"";position:absolute;inset:-9px}
+.info[aria-expanded=true]{background:var(--accent);color:var(--accent-ink,#fff)}
+.infotxt{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}

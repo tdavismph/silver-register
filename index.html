@@ -110,6 +110,10 @@ input[type=date]{min-width:150px}
 .minrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-block:8px;border-top:1px solid var(--line)}
 .minrow:first-of-type{border-top:0}
 .big{overflow-wrap:anywhere}
+.info{min-height:0;min-width:0;width:26px;height:26px;padding:0;margin-left:4px;border-radius:50%;border:1.5px solid var(--accent);background:transparent;color:var(--accent);font:italic 700 14px/1 Georgia,"Times New Roman",serif;text-transform:none;letter-spacing:0;vertical-align:middle;cursor:pointer;position:relative}
+.info::after{content:"";position:absolute;inset:-9px}
+.info[aria-expanded=true]{background:var(--accent);color:var(--accent-ink,#fff)}
+.infotxt{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
 </style></head>
 <body>
 <div class="bar"><div class="wrap">
@@ -142,7 +146,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.4";
+const BUILD="0.2.5";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -635,7 +639,26 @@ const barHead='<tr><th>Measure</th><th class="n">Number</th><th class="n">Out of
 const tbl=(head,rows)=>'<div class="tblwrap"><table><tr>'+head.map(h=>"<th"+(h[0]==="#"?' class="n"':"")+">"+esc(h.replace(/^#/,""))+"</th>").join("")+"</tr>"+rows.join("")+"</table></div>";
 const pLink=p=>'<button class="link" data-pid="'+p.id+'">'+esc(p.name)+"</button>";
 const card=(h,b)=>'<div class="card">'+(h?"<h3>"+esc(h)+"</h3>":"")+b+"</div>";
-const stat=(h,v,sub)=>'<div class="card"><h3>'+esc(h)+'</h3><div class="big">'+v+"</div>"+(sub?'<p class="small muted">'+sub+"</p>":"")+"</div>";
+/* Fuller definitions, shown when the small "i" on a tile is touched. Matched by the start of the tile's heading. */
+const INFO=[
+ ["Billable share",()=>"The share of the community health workers' paid hours that can be billed to Medicare. It is the hours logged against a barrier in a patient's plan, divided by paid hours ("+CFG.paidHours+" a month for each worker, set in Settings). Travel, supervision, training, time not tied to a barrier and unlogged hours are not billable. The pitch deck plans on "+CFG.util.plan+"% and treats about "+CFG.util.floor+"% as the floor below which the paid tier does not cover its cost."],
+ ["Patients with countable time",()=>"Patients with any time this month logged against a barrier in their plan, whether or not it reaches the "+CFG.first+" minutes needed to bill."],
+ ["Patients who can be billed",()=>"Patients with at least "+CFG.first+" countable minutes in the calendar month. Below that, nothing can be billed for the month."],
+ ["Countable",()=>"Time a community health worker logged against a barrier that is in the patient's plan. Only this time counts toward the Medicare codes. Each barrier must be tied to an active condition recorded by the practitioner."],
+ ["Waiting for review",()=>"Time logged against a barrier that the community health worker found after the first clinic visit. It cannot be counted until the practitioner reviews the barrier and adds it to the plan."],
+ ["Not countable",()=>"Travel, and time with or for the patient that was not tied to a barrier. It is logged so that the billable share can be measured, and is never billed."],
+ ["G0019 units",()=>"G0019 is the Medicare code for the first "+CFG.first+" minutes of community health worker time for one patient in a calendar month. One unit for each patient who reached "+CFG.first+" countable minutes. Rate used: "+money(CFG.rate.g19)+"."],
+ ["G0022 units",()=>"G0022 is the Medicare code for each further "+CFG.add+" minutes for the same patient in the same month, after the first "+CFG.first+". Rate used: "+money(CFG.rate.g22)+"."],
+ ["Allowed amount",()=>"The total Medicare recognizes for these services: units multiplied by the rates in Settings. Medicare pays "+CFG.medicare+"% of it. The rest is the patient's coinsurance, which Medicaid covers for dual-eligible patients and the sliding-fee discount reduces for others."],
+ ["Urgent",()=>"Flags that need action the same day: a very high blood pressure reading, no heat today or a room below 68°F, no air conditioner and no fan, a mood score of 3 or more, a change in sight, or a safety concern."],
+ ["For the monthly review",()=>"Flags that are not urgent. Go through them at the next monthly Care Group meeting and record what was done for each."],
+ ["Vision and hearing list",()=>"Routine flags from the vision and hearing checks. They are kept as one list to go through with the volunteers at the monthly meeting, not as separate tasks."],
+ ["Passed to the clinic",()=>"Flags you have sent on to the clinic that the clinic has not yet acted on."],
+ ["Handyman jobs open",()=>"Repairs and safety fittings on the work list for the church handyman teams that are not yet marked as done."],
+ ["Episodes open now",()=>"Patients in a "+CFG.epDays+"-day community health worker episode today, against the most the workers can carry at "+CFG.caseMax+" each."],
+ ["Patients in an episode",()=>"Patients you are visiting now. The usual range is "+CFG.caseLow+" to "+CFG.caseMax+" at one time, which is the caseload of the Connected Care program in Oregon."]];
+const infoFor=h=>{const r=INFO.find(x=>h.startsWith(x[0]));return r?r[1]():"";};
+const stat=(h,v,sub)=>{const inf=infoFor(h);return'<div class="card"><h3>'+esc(h)+(inf?' <button class="info" data-info aria-label="What this means" aria-expanded="false">i</button>':"")+'</h3><div class="big">'+v+"</div>"+(sub?'<p class="small muted">'+sub+"</p>":"")+(inf?'<p class="small infotxt" hidden>'+esc(inf)+"</p>":"")+"</div>";};
 const COVCHIP=c=>!c?"":covOK(c.cov)?chip(PATHS[c.cov.path].split(" (")[0],"info"):chip("Not billable","warn");
 const ROUTECHIP={chw:["CHW episode","info"],both:["CHW episode, then volunteer","info"],vol:["Volunteer visitor","good"],clinic:["Clinic action only",""]};
 const bStat=b=>b.res?chip("Resolved "+fmtD(b.res),"good"):b.status==="review"?chip("Waiting for the practitioner's review","warn"):b.status==="declined"?chip("Not added to the plan","bad"):b.src==="chw"?chip("Added to the plan "+fmtD(b.rev),"info"):chip("In the plan","info");
@@ -907,7 +930,8 @@ function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.rol
   const vs=["v1","v13","v25"].map(id=>IX.w[id]);
   $("#role").innerHTML=g("clinic","Clinic")+g("chw","Community health workers")+g("coord","Coordinator")+'<optgroup label="Volunteer visitors (one from each Care Group)">'+vs.map(w=>'<option value="'+w.id+'">'+esc(w.name)+"</option>").join("")+"</optgroup>"+g("admin","Administrator");$("#role").value=UI.who;}
 function reset(){UI.mode=null;UI.F=null;UI.all=false;UI.q="";}
-document.addEventListener("click",e=>{const t=e.target.closest("[data-tab],[data-pid],[data-act],[data-set],[data-tog]");if(!t||t.disabled)return;const d=t.dataset;
+document.addEventListener("click",e=>{const ib=e.target.closest("[data-info]");if(ib){const x=ib.closest(".card").querySelector(".infotxt");x.hidden=!x.hidden;ib.setAttribute("aria-expanded",String(!x.hidden));return;}
+  const t=e.target.closest("[data-tab],[data-pid],[data-act],[data-set],[data-tog]");if(!t||t.disabled)return;const d=t.dataset;
   if(d.set){const cur=getPath(UI.F,d.set);setPath(UI.F,d.set,cur===d.v?null:d.v);UI.keep=true;return render();}
   if(d.tog){let arr=getPath(UI.F,d.tog);if(!Array.isArray(arr)){arr=[];setPath(UI.F,d.tog,arr);}const i=arr.indexOf(d.v);if(i>=0)arr.splice(i,1);else arr.push(d.v);UI.keep=true;return render();}
   if(d.tab){reset();UI.tab=d.tab;return render();}
