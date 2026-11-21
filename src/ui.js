@@ -3,7 +3,9 @@ const UI={who:"pa1",tab:null,mode:null,pid:null,F:null,back:null,q:"",pf:"ref",a
 const me=()=>IX.w[UI.who];
 const TABS={clinic:[["todo","To do"],["newref","New referral"],["patients","Patients"],["billing","Billing"],["reports","Reports"]],
   chw:[["today","Today"],["mine","My patients"],["time","Time log"],["reports","My results"]],
-  admin:[["reports","Reports"],["billing","Billing"],["workers","Workers"],["settings","Settings"]]};
+  vol:[["vtoday","Today"],["vmine","My elders"],["vresults","My results"]],
+  coord:[["cflags","Flags"],["groups","Care Groups"],["jobs","Work list"],["creports","Reports"]],
+  admin:[["reports","Reports"],["creports","Volunteer tier"],["billing","Billing"],["workers","Workers"],["settings","Settings"]]};
 const ROLE={admin:"Administrator",clinic:"Clinic",chw:"Community health worker",coord:"Coordinator",vol:"Volunteer visitor"};
 const getPath=(o,path)=>{for(const k of path.split(".")){if(o==null)return undefined;o=o[k];}return o;};
 function setPath(o,path,v){const k=path.split(".");for(let i=0;i<k.length-1;i++){if(o[k[i]]==null)o[k[i]]={};o=o[k[i]];}o[k[k.length-1]]=v;}
@@ -32,14 +34,16 @@ const noteHtml=()=>{if(!UI.note)return"";const n=UI.note;UI.note=null;return '<d
 
 /* ---------- clinic: To do ---------- */
 function vTodo(){
-  const safe=S.a.filter(a=>a.safety==="y"&&!a.safeAck),rev=S.b.filter(b=>b.status==="review"),fl=S.flag.filter(f=>f.to==="clinic"&&f.status==="open");
+  const safe=S.a.filter(a=>a.safety==="y"&&!a.safeAck),rev=S.b.filter(b=>b.status==="review"),fl=S.flag.filter(f=>f.to==="clinic"&&f.status==="open"&&f.type!=="vax").sort((a,b)=>(b.urg-a.urg)||(a.d<b.d?-1:1));
   let h="<h1>To do</h1><p class='muted'>"+esc(CFG.practice)+". "+fmtD(TODAY)+".</p>"+noteHtml();
   h+='<div class="grid">'+stat("Safety concerns",safe.length)+stat("Barriers to review",rev.length)+stat("Flags from volunteers",fl.length)+S.w.filter(w=>w.role==="chw").map(w=>{const n=openOf(w.id).length;return stat(w.name,n+" of "+CFG.caseMax,"patients in an episode now");}).join("")+"</div>";
   for(const a of safe){const p=IX.p[a.p];h+='<div class="card task p1"><h3>Safety concern reported the same day</h3><h2>'+pLink(p)+' <span class="muted small">'+esc(p.mrn)+"</span></h2><p>"+esc(a.safeNote)+"</p><p class='small muted'>Reported by "+esc(IX.w[a.chw].name)+" at a "+a.kind.toLowerCase()+" on "+fmtD(a.d)+'.</p><div class="row"><button class="pri" data-act="ack" data-id="'+a.id+'">I have seen this and acted</button></div></div>';}
   for(const b of rev){const p=IX.p[b.p],m=sum(S.t.filter(r=>r.b===b.id).map(r=>r.min));
     h+='<div class="card task p2"><h3>Barrier found by the CHW: review needed</h3><h2>'+pLink(p)+' <span class="muted small">'+esc(p.mrn)+"</span></h2><p><b>"+esc(BAR[b.key].label)+"</b> ("+esc(BAR[b.key].code)+"), linked by the CHW to "+b.links.map(L=>L+" "+esc(COND[L][0])).join(", ")+".</p><p class='small muted'>Found by "+esc(IX.w[b.by].name)+" on "+fmtD(b.d)+". "+m+" minutes already logged against it cannot be counted until it is in the plan.</p>"+'<div class="row"><button class="pri" data-act="review" data-id="'+b.id+'" data-v="approved">Add to the plan</button><button data-act="review" data-id="'+b.id+'" data-v="declined">Do not add</button></div></div>';}
-  for(const f of fl){const p=IX.p[f.p],c=lastCk(p.id),recent=c&&diff(TODAY,c.d)<=CFG.noRepeat;
-    h+='<div class="card task p3"><h3>Flag from a volunteer visitor</h3><h2>'+pLink(p)+' <span class="muted small">'+esc(p.mrn)+"</span></h2><p>"+esc(FLAGS[f.type][0])+".</p><p class='small muted'>Passed up by "+esc(IX.w[f.by].name)+" on "+fmtD(f.d)+". The volunteer records and reports, and does not interpret."+(recent?" This patient was seen here on "+fmtD(c.d)+".":"")+'</p><div class="row"><select id="fa_'+f.id+'"><option value="">Choose the action taken</option>'+["Appointment made","Called the patient","Refill sent to the pharmacy","Referral checklist scheduled for the next visit","Reviewed: no action needed"].map(x=>"<option>"+x+"</option>").join("")+'</select><button data-act="flagdone" data-id="'+f.id+'">Record the action</button></div></div>';}
+  for(const f of fl.slice(0,UI.all?999:6)){const p=IX.p[f.p],c=lastCk(p.id),recent=c&&diff(TODAY,c.d)<=CFG.noRepeat;
+    h+='<div class="card task p'+(f.urg?1:3)+'"><h3>'+(f.urg?"Urgent · ":"")+'Flag from a volunteer visitor</h3><h2>'+pLink(p)+' <span class="muted small">'+esc(p.mrn)+"</span></h2><p><b>"+esc(FLAGS[f.type][0])+".</b>"+(f.detail?" "+esc(flagDetail(f)):"")+"</p><p class='small muted'>Recorded by "+esc(IX.w[f.by].name)+" on "+fmtD(f.d)+" and sent on by the coordinator. The volunteer records and reports, and does not interpret."+(recent?" This patient was seen here on "+fmtD(c.d)+".":"")+'</p><div class="row"><select id="fa_'+f.id+'"><option value="">Choose the action taken</option>'+["Appointment made","Called the patient","Refill sent to the pharmacy","Referral checklist scheduled for the next visit","Reviewed: no action needed"].map(x=>"<option>"+x+"</option>").join("")+'</select><button data-act="flagdone" data-id="'+f.id+'">Record the action</button></div></div>';}
+  if(fl.length>6&&!UI.all)h+='<button data-act="all">Show all '+fl.length+" flags</button>";
+  h+=vaxCard();
   if(!safe.length&&!rev.length&&!fl.length)h+='<div class="note">Nothing is waiting for you.</div>';
   return h;}
 
@@ -267,13 +271,13 @@ function vReports(){const w=me(),chw=w.role==="chw"?w.id:null,EP=S.ep.filter(e=>
   const A=[...new Set(EP.map(e=>e.p))].map(id=>IX.p[id]).filter(p=>p.bp.length>=2),below=A.filter(p=>{const l=p.bp[p.bp.length-1];return l.s<140&&l.di<90;});
   h+='<h2 class="rep">'+(chw?"6":"7")+". Blood pressure in episode patients with hypertension</h2><div class='card'><div class='tblwrap'><table>"+barHead+bar("Latest home reading below 140/90",below.length,A.length,0,"Patients with condition A and two or more home readings")+"</table></div>"+tbl(["Measure","#Value"],[["Average upper reading at the first home visit",A.length?mean(A.map(p=>p.bp[0].s)).toFixed(1):""],["Average upper reading at the latest home visit",A.length?mean(A.map(p=>p.bp[p.bp.length-1].s)).toFixed(1):""]].map(r=>"<tr><td>"+r[0]+"</td><td class='n'>"+r[1]+"</td></tr>"))+"<p class='small muted'>Home readings taken by the CHW. A first high reading tends to be lower when repeated, so part of any fall is not an effect of the program. The clinic's own readings are the measure for quality reporting.</p></div>";
   if(!chw){const fk={};for(const f of S.flag){const o=fk[f.type]=fk[f.type]||[0,0];o[0]++;if(f.status==="done")o[1]++;}
-    h+='<h2 class="rep">8. Flags passed up by volunteer visitors</h2><div class="card">'+tbl(["Flag","Goes to","#Raised","#Closed","#Open"],Object.entries(fk).sort((a,b)=>b[1][0]-a[1][0]).map(([k,v])=>"<tr><td>"+esc(FLAGS[k][0])+"</td><td>"+(FLAGS[k][1]==="clinic"?"Clinic":"Coordinator")+"</td><td class='n'>"+v[0]+"</td><td class='n'>"+v[1]+"</td><td class='n'>"+(v[0]-v[1])+"</td></tr>"))+"<p class='small muted'>The volunteer and coordinator screens, visit coverage, quality checklists and the comparison of Care Groups arrive in the next builds.</p></div>";}
+    h+='<h2 class="rep">8. Flags passed up by volunteer visitors</h2><div class="card">'+tbl(["Flag","Goes to","#Raised","#Closed","#Open"],Object.entries(fk).sort((a,b)=>b[1][0]-a[1][0]).map(([k,v])=>"<tr><td>"+esc(FLAGS[k][0])+"</td><td>"+(FLAGS[k][1]==="clinic"?"Clinic":"Coordinator")+"</td><td class='n'>"+v[0]+"</td><td class='n'>"+v[1]+"</td><td class='n'>"+(v[0]-v[1])+"</td></tr>"))+"<p class='small muted'>Visit coverage, the checks and the comparison of Care Groups are in the administrator's Volunteer tier report and the coordinator's Reports.</p></div>";}
   return h;}
 
 /* ---------- administrator ---------- */
 function vWorkers(){const g=r=>S.w.filter(w=>w.role===r);
   return"<h1>Workers</h1>"+'<div class="card">'+tbl(["Role","Name","Work now"],g("clinic").map(w=>"<tr><td>Clinic (billing practitioner)</td><td>"+esc(w.name)+"</td><td>"+S.ck.filter(c=>c.by===w.id).length+" checklists</td></tr>").concat(g("chw").map(w=>"<tr><td>Community health worker</td><td>"+esc(w.name)+"</td><td>"+openOf(w.id).length+" of "+CFG.caseMax+" patients</td></tr>"),g("coord").map(w=>"<tr><td>Coordinator</td><td>"+esc(w.name)+"</td><td>3 Care Groups</td></tr>")))+"</div>"
-    +'<div class="card"><h3>Volunteer visitors</h3>'+tbl(["Care Group","#Volunteers","#Elders visited"],[1,2,3].map(cg=>{const v=g("vol").filter(w=>w.cg===cg);return"<tr><td>Care Group "+cg+" ("+PLACES.filter(p=>p.cg===cg).map(p=>p.n).join(" and ")+", "+PLACES.find(p=>p.cg===cg).c+" County)</td><td class='n'>"+v.length+"</td><td class='n'>"+S.p.filter(p=>v.some(x=>x.id===p.vol)).length+"</td></tr>";}))+"<p class='small muted'>The coordinator and volunteer screens arrive in build 0.2. The communities are fictitious. Adding workers and sign-in names comes with the sign-in version.</p></div>";}
+    +'<div class="card"><h3>Volunteer visitors</h3>'+tbl(["Care Group","#Volunteers","#Elders visited"],[1,2,3].map(cg=>{const v=g("vol").filter(w=>w.cg===cg);return"<tr><td>Care Group "+cg+" ("+PLACES.filter(p=>p.cg===cg).map(p=>p.n).join(" and ")+", "+PLACES.find(p=>p.cg===cg).c+" County)</td><td class='n'>"+v.length+"</td><td class='n'>"+S.p.filter(p=>v.some(x=>x.id===p.vol)).length+"</td></tr>";}))+"<p class='small muted'>Three volunteers, one from each Care Group, can be chosen in the user list to see their screens. The communities are fictitious. Adding workers and sign-in names comes with the sign-in version.</p></div>";}
 function vSettings(){const f=(label,path,hint)=>'<div class="minrow"><div class="grow"><b>'+esc(label)+"</b>"+(hint?'<div class="small muted">'+esc(hint)+"</div>":"")+'</div><input type="number" step="any" data-cfg="'+path+'" value="'+getPath(CFG,path)+'" style="width:110px"></div>';
   return"<h1>Settings</h1><p class='muted'>Changes apply at once and last until the page is closed. Build "+BUILD+".</p>"
     +'<div class="card"><h3>Medicare billing</h3>'+f("G0019 rate, dollars","rate.g19","First 60 minutes in a calendar month. 2026 national rate from the pitch deck; the calculator's default is $80.")+f("G0022 rate, dollars","rate.g22","Each further 30 minutes. The calculator's default is $45.")+f("Countable minutes needed before G0019 is billed","first","Confirm the threshold rule with the billing office.")+f("Minutes for each G0022 unit","add")+f("Share of the allowed amount paid by Medicare, %","medicare")+"</div>"
@@ -285,20 +289,22 @@ function vSettings(){const f=(label,path,hint)=>'<div class="minrow"><div class=
 function render(){const w=me(),y=window.scrollY,tabs=TABS[w.role];if(!tabs.some(t=>t[0]===UI.tab))UI.tab=tabs[0][0];
   $("#who").textContent=(w.role==="admin"?"Administrator":ROLE[w.role]+": "+w.name)+" · example data";
   $("#nav").innerHTML=tabs.map(t=>'<button class="tab'+(t[0]===UI.tab&&!UI.mode?" on":"")+'" data-tab="'+t[0]+'">'+t[1]+"</button>").join("");
-  const V={todo:vTodo,newref:()=>{if(!UI.F||UI.F.t!=="ck")startCk("");return vCk();},patients:vPatients,billing:vBilling,reports:vReports,today:vToday,mine:vMine,time:vTime,workers:vWorkers,settings:vSettings};
-  const M={person:vPerson,work:vWork,handoff:vHandoff};
+  const V={todo:vTodo,newref:()=>{if(!UI.F||UI.F.t!=="ck")startCk("");return vCk();},patients:vPatients,billing:vBilling,reports:vReports,today:vToday,mine:vMine,time:vTime,workers:vWorkers,settings:vSettings,...XV};
+  const M={person:vPerson,work:vWork,handoff:vHandoff,...XM};
   $("#app").innerHTML=(UI.mode?M[UI.mode]:V[UI.tab])();if(UI.keep){window.scrollTo(0,y);UI.keep=false;}else window.scrollTo(0,0);}
 function roleSel(){const g=(r,l)=>'<optgroup label="'+l+'">'+S.w.filter(w=>w.role===r).map(w=>'<option value="'+w.id+'">'+esc(w.name)+"</option>").join("")+"</optgroup>";
-  $("#role").innerHTML=g("clinic","Clinic")+g("chw","Community health workers")+g("admin","Administrator");$("#role").value=UI.who;}
+  const vs=["v1","v13","v25"].map(id=>IX.w[id]);
+  $("#role").innerHTML=g("clinic","Clinic")+g("chw","Community health workers")+g("coord","Coordinator")+'<optgroup label="Volunteer visitors (one from each Care Group)">'+vs.map(w=>'<option value="'+w.id+'">'+esc(w.name)+"</option>").join("")+"</optgroup>"+g("admin","Administrator");$("#role").value=UI.who;}
 function reset(){UI.mode=null;UI.F=null;UI.all=false;UI.q="";}
 document.addEventListener("click",e=>{const t=e.target.closest("[data-tab],[data-pid],[data-act],[data-set],[data-tog]");if(!t||t.disabled)return;const d=t.dataset;
   if(d.set){const cur=getPath(UI.F,d.set);setPath(UI.F,d.set,cur===d.v?null:d.v);UI.keep=true;return render();}
   if(d.tog){let arr=getPath(UI.F,d.tog);if(!Array.isArray(arr)){arr=[];setPath(UI.F,d.tog,arr);}const i=arr.indexOf(d.v);if(i>=0)arr.splice(i,1);else arr.push(d.v);UI.keep=true;return render();}
   if(d.tab){reset();UI.tab=d.tab;return render();}
-  if(d.pid){UI.back={tab:UI.tab};UI.pid=d.pid;UI.F=null;UI.all=false;UI.mode="person";return render();}
+  if(d.pid){UI.back={tab:UI.tab};UI.pid=d.pid;UI.F=null;UI.all=false;UI.mode=["vol","coord"].includes(me().role)?"elder":"person";return render();}
   const A=d.act;
+  if(XACT[A])return XACT[A](d);
   if(A==="back"){reset();return render();}
-  if(A==="cancel"){const t=UI.F&&UI.F.t;UI.F=null;UI.all=false;if(t==="ck"){UI.mode=null;UI.tab="todo";}else UI.mode="person";return render();}
+  if(A==="cancel"){const t=UI.F&&UI.F.t;UI.F=null;UI.all=false;if(t==="ck"){UI.mode=null;UI.tab="todo";}else UI.mode=t==="visit"?"elder":"person";return render();}
   if(A==="all"){UI.all=true;UI.keep=true;return render();}
   if(A==="startck"){reset();startCk(d.id);UI.tab="newref";return render();}
   if(A==="saveck")return saveCk();
@@ -312,7 +318,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-tab],[data
   if(A==="flagdone"){const f=S.flag.find(x=>x.id===d.id),v=$("#fa_"+d.id).value;if(!v){UI.note=["Choose the action taken before recording it.","warn"];UI.keep=true;return render();}f.status="done";f.done=TODAY;f.act=v;UI.note=["Recorded: "+v+"."];UI.keep=true;return render();}
   if(A==="addtime"){const F=UI.F;if(!F.kind||!(+F.min>0)||!F.d||F.d>TODAY){F.tried=true;UI.keep=true;return render();}S.t.push({id:uid("t"),chw:UI.who,d:F.d,p:null,kind:F.kind,min:Math.round(+F.min)});UI.note=[Math.round(+F.min)+" minutes of "+F.kind.toLowerCase()+" added."];UI.F=null;UI.ym=F.d.slice(0,7);return render();}});
 document.addEventListener("input",e=>{const el=e.target,d=el.dataset;if(el.type==="checkbox")return;
-  if(d.n&&UI.F){setPath(UI.F,d.n,el.value);if(d.live){const t=$("#tot");if(t)t.innerHTML=totHtml(UI.F);const b=$("#bpn");if(b)b.innerHTML=bpNote(UI.F);}return;}
+  if(d.n&&UI.F){setPath(UI.F,d.n,el.value);if(d.live){const t=$("#tot");if(t)t.innerHTML=totHtml(UI.F);const b=$("#bpn");if(b)b.innerHTML=bpNote(UI.F);const vb=$("#vbpn");if(vb)vb.innerHTML=volBpNote(UI.F);}return;}
   if(d.cfg){const v=+el.value;if(el.value!==""&&v>=0)setPath(CFG,d.cfg,v);return;}
   if(el.id==="q"){UI.q=el.value;UI.all=false;UI.keep=true;render();const n=$("#q");n.focus();n.setSelectionRange(n.value.length,n.value.length);}});
 document.addEventListener("change",e=>{const el=e.target,d=el.dataset;

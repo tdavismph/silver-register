@@ -22,7 +22,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.1.1";
+const BUILD="0.2";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -241,11 +241,7 @@ function build(){
   const recent=S.a.filter(a=>a.kind===KINDS[0]&&!IX.ep[a.ep].end).sort((a,b)=>a.d<b.d?1:-1);
   if(recent[0]){recent[0].safety="y";recent[0].safeNote="Said that life has not felt worth living since his wife died. No plan stated. Clinical supervisor called before leaving the home.";}
   const older=S.a.filter(a=>a.kind===KINDS[0]&&diff(TODAY,a.d)>40)[7];if(older){older.safety="y";older.safeNote="Space heater running beside an oxygen line. Moved it and called the supervisor.";older.safeAck=addD(older.d,0);older.safeBy="pa1";}
-  // Flags passed up by volunteer visitors (their screens arrive in build 0.2)
-  const FT=["bp","bp","bp","mood","fall","meds","food","home","home","temp","mail"],ACT=["Appointment made","Called the patient","Refill sent to the pharmacy","Referral checklist scheduled for the next visit","Reviewed: no action needed"];
-  for(let m=0;m<=mIdx(TODAY);m++)for(const v of S.w.filter(w=>w.role==="vol")){if(!ch(.4))continue;const mine=S.p.filter(p=>p.vol===v.id),p=pick(mine),d=addD(CFG.start,m*30.4375+ri(0,29));if(d>TODAY)continue;
-    const type=pick(FT),f={id:uid("f"),p:p.id,d,by:v.id,type,to:FLAGS[type][1],status:"open"};const age=diff(TODAY,d);
-    if(age>21?ch(.93):age>7?ch(.55):ch(.15)){f.status="done";f.done=addD(d,Math.min(age,ri(1,12)));f.act=f.to==="clinic"?pick(ACT):"Handled by the coordinator";}S.flag.push(f);}
-  S.flag.sort((a,b)=>a.d<b.d?-1:1);
+  // Monthly volunteer visits, the flags they pass up, handyman jobs and Care Group meetings (see vol.js)
+  simVisits(R,N,pick,ch,ri);
   index();
 }

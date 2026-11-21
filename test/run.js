@@ -8,7 +8,7 @@ const {chromium}=require(process.env.PW||"playwright");const path=require("path"
         for(const el of document.querySelectorAll("button,select,input,.chip,h1,h2,td,th")){const r=el.getBoundingClientRect();if(!r.width)continue;const inScroll=el.closest(".tblwrap,nav");if(!inScroll&&(r.right>W+1||r.left<-1))out.push(el.tagName+" cut off: "+(el.textContent||el.value||"").slice(0,40));}
         if(/undefined|NaN|\[object/.test(document.querySelector("#app").innerText))out.push("bad text: "+document.querySelector("#app").innerText.match(/.{0,40}(undefined|NaN|\[object).{0,30}/)[0]);return out;});
       for(const x of r)fail(w+" "+where+": "+x);};
-    for(const who of ["pa1","chw1","chw2","adm"]){await pg.selectOption("#role",who);const tabs=await pg.$$eval("#nav button",a=>a.map(x=>x.dataset.tab));
+    for(const who of ["pa1","chw1","chw2","co1","v1","v13","adm"]){await pg.selectOption("#role",who);const tabs=await pg.$$eval("#nav button",a=>a.map(x=>x.dataset.tab));
       for(const t of tabs){await pg.click('#nav [data-tab="'+t+'"]');await check(who+"/"+t);
         const link=await pg.$("#app [data-pid]");if(link){await link.click();await check(who+"/"+t+"/person");const all=await pg.$('#app [data-act="all"]');if(all){await all.click();await check(who+"/"+t+"/person/all");}await pg.click('[data-act="back"]');}}}
     // flow 1: the PA completes a checklist and routes to a CHW episode
@@ -50,6 +50,29 @@ const {chromium}=require(process.env.PW||"playwright");const path=require("path"
     await pg.selectOption("#ym",await pg.evaluate(()=>months()[3]));await check("billing/older");
     await pg.click('[data-tab="patients"]');for(const v of ["ep","vol","cl","no","all"]){await pg.selectOption("#pf",v);await check("patients/"+v);}await pg.fill("#q","buch");await check("patients/search");
     await pg.selectOption("#role","adm");await pg.click('[data-tab="settings"]');await pg.fill('[data-cfg="rate.g19"]',"80");await pg.click('[data-tab="billing"]');await check("adm/billing-after-setting");
+    // flow 6: a volunteer records a visit; the coordinator and the clinic act on what is passed up
+    await pg.selectOption("#role","v1");await pg.click('[data-tab="vmine"]');const nv=await pg.evaluate(()=>[S.v.length,S.flag.length]);
+    await pg.click('#app [data-act="visit"]');await pg.click('[data-act="savevisit"]');await check("visit/empty-tried");
+    await pg.click('[data-set="bpTaken"][data-v="y"]');await pg.fill('[data-n="s"]',"186");await pg.fill('[data-n="di"]',"98");if(!/call the coordinator now/.test(await pg.textContent("#vbpn")))fail(w+" volunteer bp note");
+    for(const k of ["ev.fall","ev.meds","ev.safety"])await pg.click('[data-set="'+k+'"][data-v="n"]');
+    for(const k of await pg.$$eval('[data-set^="on."][data-v="y"]',a=>a.filter(x=>!x.classList.contains("on")).map(x=>x.dataset.set)))await pg.click('[data-set="'+k+'"][data-v="y"]');
+    const hasHome=await pg.$('[data-sel="extra"] option[value="home"]');if(hasHome)await pg.selectOption('[data-sel="extra"]',"home");
+    for(let n=0;n<8;n++){const todo=await pg.$$eval('#app .seg',a=>a.filter(s=>{const b=s.querySelector("[data-set^='a.']");return b&&!s.querySelector(".on")}).map(s=>s.querySelector("[data-set^='a.']").dataset.set));if(!todo.length)break;
+      for(const k of todo){const el=await pg.$('[data-set="'+k+'"]');if(el)await pg.click('[data-set="'+k+'"][data-v="'+(k==="a.home.4"||k==="a.vax.0"?"n":k.startsWith("a.mood")||k.startsWith("a.food")?(k.startsWith("a.mood")?"0":"n"):"y")+'"]');}}
+    await pg.click('[data-tog="items"][data-v="Night lights or non-slip strips"]');await check("visit/filled");await pg.click('[data-act="savevisit"]');
+    const av=await pg.evaluate(()=>{const v=S.v[S.v.length-1];return[S.v.length,S.flag.filter(f=>f.v===v.id).map(f=>f.type+(f.urg?"!":"")+">"+f.to).join(" "),document.querySelector(".note").textContent.slice(0,200),v.p]});
+    if(av[0]!==nv[0]+1||!/bp!>coord/.test(av[1]))fail(w+" visit save "+JSON.stringify(av));else if(w===390)console.log("visit ->",av[1],"|",av[2]);await check("visit/saved-elder");
+    await pg.click('[data-act="back"]');await pg.click('[data-tab="vresults"]');await check("vol/results");
+    await pg.selectOption("#role","co1");const cid=await pg.evaluate(p=>S.flag.find(f=>f.p===p&&f.type==="bp"&&f.status==="open"&&f.to==="coord").id,av[3]);
+    await pg.click('[data-act="cflag"][data-id="'+cid+'"]');await check("coord/noaction");await pg.selectOption("#ca_"+cid,"Passed to the clinic");await pg.click('[data-act="cflag"][data-id="'+cid+'"]');
+    if(await pg.evaluate(id=>S.flag.find(f=>f.id===id).to,cid)!=="clinic")fail(w+" flag not passed to clinic");
+    const hid=await pg.evaluate(()=>{const f=S.flag.find(f=>f.type==="home"&&f.status==="open"&&f.to==="coord");return f&&f.id});
+    if(hid){const all=await pg.$('[data-act="all"]');if(all)await all.click();const nj=await pg.evaluate(()=>S.job.length);await pg.selectOption("#ca_"+hid,"Put on the handyman work list");await pg.click('[data-act="cflag"][data-id="'+hid+'"]');if(await pg.evaluate(()=>S.job.length)!==nj+1)fail(w+" job not created");}
+    await pg.click('[data-tab="jobs"]');const jo=await pg.evaluate(()=>S.job.filter(j=>j.status==="open").length);await pg.click('[data-act="jobdone"]');if(await pg.evaluate(()=>S.job.filter(j=>j.status==="open").length)!==jo-1)fail(w+" job not done");await check("coord/jobs");
+    await pg.click('[data-tab="groups"]');await pg.click('[data-act="savemt"]');await check("coord/mt-tried");await pg.click('[data-set="cg"][data-v="2"]');await pg.selectOption('[data-sel="module"]',"Nutrition");await pg.click('[data-tog="att"]');await pg.click('[data-set="restock"][data-v="y"]');await check("coord/mt-filled");
+    const nm=await pg.evaluate(()=>S.mt.length);await pg.click('[data-act="savemt"]');if(await pg.evaluate(()=>S.mt.length)!==nm+1)fail(w+" meeting not saved");await check("coord/mt-saved");
+    await pg.selectOption("#role","pa1");if(!await pg.$('[data-act="flagdone"][data-id="'+cid+'"]')){const all=await pg.$('[data-act="all"]');if(all)await all.click();}
+    if(!await pg.$('[data-act="flagdone"][data-id="'+cid+'"]'))fail(w+" passed flag not on the clinic list");const vx=await pg.$('[data-act="vaxdone"]');if(vx){const n=await pg.evaluate(()=>S.flag.filter(f=>f.type==="vax"&&f.status==="open").length);await vx.click();if(await pg.evaluate(()=>S.flag.filter(f=>f.type==="vax"&&f.status==="open").length)!==n-1)fail(w+" vax not closed");}await check("clinic/after-vol");
     if(w===820)await pg.screenshot({path:"/tmp/s820.png"});
     await pg.close();}
   await b.close();console.log(bad?bad+" problems":"all checks passed");process.exit(bad?1:0);})();
