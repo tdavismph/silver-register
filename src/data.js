@@ -22,7 +22,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2";
+const BUILD="0.2.1";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
