@@ -23,7 +23,7 @@ const hrs=m=>(m/60).toFixed(1);
 const money0=n=>"$"+Math.round(n).toLocaleString("en-US");
 const monthEnd=ym=>{const y=+ym.slice(0,4),m=+ym.slice(5,7);return ym+"-"+String(new Date(Date.UTC(y,m,0)).getUTCDate()).padStart(2,"0")};
 let SEQ=0;const uid=p=>p+(++SEQ);
-const BUILD="0.2.7";
+const BUILD="0.2.8";
 
 /* ---------- settings (all editable by the administrator) ---------- */
 const CFG={
@@ -39,7 +39,11 @@ const CFG={
   callGap:10,                        // days without any contact before a call is due
   caseMax:15,caseLow:12,             // patients at one time per full-time CHW (Connected Care benchmark)
   paidHours:150,                     // paid hours per CHW per month, for the billable share
-  util:{plan:60,floor:55},           // % of paid hours that are billable: planning figure and floor (pitch deck)
+  util:{plan:60,floor:55},
+  // What one full-time CHW costs the organization that employs the CHWs, per year. Defaults are the SILVER Project Calculator's.
+  // The billing practitioner's time is not included: that cost sits with the clinic.
+  cost:{salary:55000,miles:6000,superv:0,overhead:12},
+  collect:80,                        // % of the allowed amount expected to be collected. 80 = Medicare's payment alone, with no coinsurance.           // % of paid hours that are billable: planning figure and floor (pitch deck)
   // Draft lines for the CHW's blood pressure check. For clinical review before any real use.
   bp:{report:[140,90],now:[180,120]},
   noRepeat:30                        // days: no new routine flag for a person seen at the clinic this recently (used from build 0.2)
